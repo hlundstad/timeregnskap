@@ -77,11 +77,17 @@ så du trenger verken server, token eller ventetid. Regnestykket skjer i Safari.
 | --- | --- |
 | Hent tekst fra inndata | inndata = Snarveiinndata |
 | Base64-koding | kod Tekst |
-| Tekst | `https://<brukernavn>.github.io/timeregnskap/#data=` + variabelen **Base64-kodet** |
+| Hent navn | inndata = Snarveiinndata |
+| URL-kod | kod variabelen **Navn** |
+| Tekst | `https://<brukernavn>.github.io/timeregnskap/#data=` + **Base64-kodet** + `&navn=` + **URL-kodet** |
 | Åpne URL-er | variabelen **Tekst** |
 
 Del CSV-en til snarveien, så åpner siden seg med tallene ferdig utregnet. En
 måned med data blir en lenke på under tusen tegn, så det er god plass.
+
+Filnavnet trenger ikke være `timer.csv` eller noe fast — hva CSV-filen enn
+heter, sendes navnet med i lenken og vises øverst i rapporten, slik at du ser
+hvilken fil tallene kommer fra.
 
 Ulempen: tallene vises bare på telefonen der du åpnet lenken. Siden husker
 riktignok siste fil lokalt, så neste gang du åpner den vanlige adressen ligger
