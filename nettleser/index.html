@@ -44,6 +44,8 @@
   .masthead{display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line);padding-bottom:10px}
   .masthead h1{font-family:var(--serif);font-weight:500;font-size:1.35rem;margin:0;letter-spacing:.01em}
   .periode{color:var(--muted);font-size:.82rem}
+  .kildefil{color:var(--muted);font-size:.78rem}
+  .kildefil:empty{display:none}
 
   /* --- balanse (hero) --- */
   .balanse{padding:26px 0 18px;border-bottom:1px solid var(--line)}
@@ -140,7 +142,10 @@
 
   <header class="masthead">
     <h1>Timeregnskap</h1>
-    <span class="periode" id="periode">ingen data</span>
+    <span>
+      <span class="periode" id="periode">ingen data</span>
+      <span class="kildefil" id="kildefil"></span>
+    </span>
   </header>
 
   <!-- Hero: balansen -->
@@ -624,10 +629,14 @@ function lastNedCsv(){
 }
 
 /* ---------- last inn ---------- */
-function last(tekst, kilde){
+function last(tekst, kilde, filnavn){
   try {
     data = lesCsv(tekst);
     lager.set('csv', tekst);
+    if (filnavn !== undefined){
+      if (filnavn) lager.set('kildefil', filnavn); else lager.del('kildefil');
+      $('kildefil').textContent = filnavn || '';
+    }
     const navn = [...new Set(data.poster.map(p => p.navn).filter(Boolean))];
     const sel = $('navn');
     sel.innerHTML = '<option value="">Alle</option>' + navn.map(n => '<option>' + n + '</option>').join('');
@@ -644,7 +653,7 @@ function last(tekst, kilde){
 
 function lesFil(file){
   const r = new FileReader();
-  r.onload = () => last(String(r.result), file.name);
+  r.onload = () => last(String(r.result), file.name, file.name);
   r.onerror = () => si('Fikk ikke lest filen.');
   r.readAsText(file, 'utf-8');
 }
@@ -656,7 +665,7 @@ async function hentFraUrl(vis){
   try {
     const res = await fetch(u, { cache: 'no-store' });
     if (!res.ok) throw new Error('Serveren svarte ' + res.status + '.');
-    last(await res.text(), 'nettadressen');
+    last(await res.text(), 'nettadressen', null);
   } catch (e){
     si('Klarte ikke å hente fra nettadressen: ' + e.message + ' Hvis adressen ikke tillater deling på tvers av nettsteder (CORS), må serveren sette Access-Control-Allow-Origin.');
   }
@@ -685,8 +694,8 @@ const slipp = $('slipp');
 slipp.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) lesFil(f); });
 
 $('hentUrl').addEventListener('click', () => hentFraUrl(true));
-$('brukLim').addEventListener('click', () => { const v = $('lim').value.trim(); if (v) last(v.replace(/\\n/g, '\n'), 'innlimt tekst'); else si('Lim inn innholdet først.'); });
-$('brukEksempel').addEventListener('click', () => last(EKSEMPEL, 'eksempelet'));
+$('brukLim').addEventListener('click', () => { const v = $('lim').value.trim(); if (v) last(v.replace(/\\n/g, '\n'), 'innlimt tekst', null); else si('Lim inn innholdet først.'); });
+$('brukEksempel').addEventListener('click', () => last(EKSEMPEL, 'eksempelet', null));
 $('autoHent').addEventListener('change', e => lager.set('auto', e.target.checked ? '1' : '0'));
 
 ['mal','regel','navn'].forEach(id => $(id).addEventListener('change', () => {
@@ -704,9 +713,10 @@ $('lastNed').addEventListener('click', lastNedCsv);
 $('skrivUt').addEventListener('click', () => window.print());
 $('nullstill').addEventListener('click', () => {
   data = null; siste = null;
-  lager.del('csv');
+  lager.del('csv'); lager.del('kildefil');
   ['balanse','ukeSeksjon','dagSeksjon','handlinger','innstillinger'].forEach(id => $(id).classList.add('skjult'));
   $('periode').textContent = 'ingen data';
+  $('kildefil').textContent = '';
   $('slippTekst').textContent = 'Slipp CSV-filen her, eller velg den fra telefonen.';
   si('');
 });
@@ -731,10 +741,12 @@ $('autoHent').checked = lager.get('auto', '0') === '1';
 (async function start(){
   const p = new URLSearchParams(location.search);
 
-  // CSV sendt inn i lenken, f.eks. fra en Snarvei på iPhone:  …/#data=<base64>
+  // CSV sendt inn i lenken, f.eks. fra en Snarvei på iPhone:  …/#data=<base64>&navn=<filnavn>
   const iLenke = (location.hash.match(/[#&]data=([^&]*)/) || [])[1] || p.get('data');
   if (iLenke){
-    last(dekodData(iLenke), 'lenken');
+    const iNavn = (location.hash.match(/[#&]navn=([^&]*)/) || [])[1] || p.get('navn');
+    const filnavn = iNavn ? decodeURIComponent(iNavn) : null;
+    last(dekodData(iLenke), filnavn || 'lenken', filnavn);
     history.replaceState({}, '', location.pathname);
     return;
   }
@@ -744,14 +756,14 @@ $('autoHent').checked = lager.get('auto', '0') === '1';
     try {
       const c = await caches.open('deling');
       const svar = await c.match('delt-fil');
-      if (svar){ last(await svar.text(), 'delingsmenyen'); await c.delete('delt-fil'); history.replaceState({}, '', location.pathname); return; }
+      if (svar){ last(await svar.text(), 'delingsmenyen', null); await c.delete('delt-fil'); history.replaceState({}, '', location.pathname); return; }
     } catch (e){}
   }
   if (p.get('url')){ $('url').value = p.get('url'); await hentFraUrl(false); return; }
   if ($('autoHent').checked && $('url').value){ await hentFraUrl(false); return; }
 
   const lagret = lager.get('csv', '');
-  if (lagret){ last(lagret, 'forrige gang'); si(''); }
+  if (lagret){ last(lagret, 'forrige gang'); $('kildefil').textContent = lager.get('kildefil', ''); si(''); }
 })();
 
 if ('serviceWorker' in navigator && location.protocol === 'https:'){
