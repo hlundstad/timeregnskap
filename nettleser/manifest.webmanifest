@@ -1,0 +1,29 @@
+{
+  "name": "Timeregnskap",
+  "short_name": "Timer",
+  "description": "Regner ut timer, minutter og avvik fra dagsmålet fra en CSV-fil.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F2F4F3",
+  "theme_color": "#F2F4F3",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ],
+  "share_target": {
+    "action": "share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "files": [
+        {
+          "name": "file",
+          "accept": ["text/csv", "text/comma-separated-values", "text/plain", "application/vnd.ms-excel", ".csv"]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,11 @@
+name = "timeregnskap-endepunkt"
+main = "worker.js"
+compatibility_date = "2026-01-01"
+
+# Lag først et KV-område:  wrangler kv namespace create TIMER
+# Lim inn id-en du får tilbake her:
+[[kv_namespaces]]
+binding = "TIMER"
+id = "SETT_INN_ID_HER"
+
+# Hemmelig token settes utenfor filen:  wrangler secret put TOKEN

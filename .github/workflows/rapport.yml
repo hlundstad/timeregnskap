@@ -1,0 +1,80 @@
+# Tar imot timefilen fra telefonen og publiserer regnskapet på GitHub Pages.
+#
+# Tre måter å utløse den på:
+#   1. Telefonen sender en repository_dispatch (se IPHONE.md)
+#   2. Du legger inn en ny timer.csv i repoet
+#   3. Du trykker «Run workflow» under Actions
+#
+# Slå på Settings -> Pages -> Source: GitHub Actions før første kjøring.
+
+name: Timeregnskap
+
+on:
+  repository_dispatch:
+    types: [timer]
+  push:
+    paths: ["timer.csv", "timeregnskap.py"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: timeregnskap
+  cancel-in-progress: true
+
+jobs:
+  bygg:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lagre filen som kom fra telefonen
+        if: github.event_name == 'repository_dispatch'
+        env:
+          CSV: ${{ github.event.client_payload.csv }}
+          CSV_B64: ${{ github.event.client_payload.csv_base64 }}
+        run: |
+          if [ -n "$CSV_B64" ]; then
+            printf '%s' "$CSV_B64" | base64 -d > timer.csv
+          else
+            printf '%s' "$CSV" > timer.csv
+          fi
+          head -2 timer.csv
+
+      - name: Legg filen inn i repoet
+        if: github.event_name == 'repository_dispatch'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add timer.csv
+          git commit -m "Timer fra telefonen" || echo "Ingen endring i filen"
+          git push
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Regn ut regnskapet
+        run: |
+          mkdir -p side
+          python timeregnskap.py timer.csv --html side/index.html --csv side/timeregnskap.csv
+          python timeregnskap.py timer.csv > side/oppsummering.txt
+          cp timer.csv side/timer.csv
+          cp -r nettleser side/app
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: side
+
+  publiser:
+    needs: bygg
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.pages.outputs.page_url }}
+    steps:
+      - id: pages
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,17 @@
+# Gratis utrulling på Render: New → Blueprint → pek på dette repoet.
+services:
+  - type: web
+    name: timeregnskap
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT app:app
+    envVars:
+      - key: TIMEREGNSKAP_TOKEN
+        generateValue: true      # Render lager et tilfeldig token til deg
+      - key: TIMEREGNSKAP_DATA
+        value: /var/data
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 1

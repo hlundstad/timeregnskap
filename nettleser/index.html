@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Timeregnskap</title>
+<meta name="description" content="Regn ut timer, minutter og avvik fra 7,5 timer per dag fra en CSV-fil.">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#F2F4F3">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F2F4F3;
+    --surface:#FFFFFF;
+    --ink:#16292E;
+    --muted:#63797E;
+    --line:#D5DDDB;
+    --plus:#1C6B58;
+    --minus:#9E3B2E;
+    --focus:#2B6C8F;
+    --r:10px;
+    --sans:'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --serif:'Newsreader', Georgia, 'Times New Roman', serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--sans);
+    font-size:16px;
+    line-height:1.45;
+    -webkit-text-size-adjust:100%;
+    font-variant-numeric:tabular-nums;
+  }
+  .wrap{max-width:44rem;margin:0 auto;padding:20px 16px 72px}
+  a{color:var(--focus)}
+  :focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:4px}
+
+  /* --- topp --- */
+  .masthead{display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line);padding-bottom:10px}
+  .masthead h1{font-family:var(--serif);font-weight:500;font-size:1.35rem;margin:0;letter-spacing:.01em}
+  .periode{color:var(--muted);font-size:.82rem}
+
+  /* --- balanse (hero) --- */
+  .balanse{padding:26px 0 18px;border-bottom:1px solid var(--line)}
+  .balanse .tall{
+    font-family:var(--serif);
+    font-size:clamp(2.9rem,14vw,4.4rem);
+    line-height:1;
+    font-weight:400;
+    letter-spacing:-.02em;
+    display:flex;align-items:baseline;gap:.12em;
+  }
+  .balanse .tegn{font-size:.62em;opacity:.8}
+  .balanse .enhet{font-family:var(--sans);font-size:.26em;color:var(--muted);font-weight:500;padding-left:.35em}
+  .balanse .undertekst{color:var(--muted);font-size:.85rem;margin-top:12px}
+  .balanse.pos .tall{color:var(--plus)}
+  .balanse.neg .tall{color:var(--minus)}
+
+  .skala{margin-top:18px;height:36px;position:relative}
+  .skala .akse{position:absolute;top:11px;left:0;right:0;height:1px;background:var(--line)}
+  .skala .null{position:absolute;top:1px;height:21px;width:1px;background:var(--ink);opacity:.6}
+  .skala .stolpe{position:absolute;top:6px;height:11px;border-radius:2px}
+  .skala .tick{position:absolute;top:3px;height:17px;width:2px;background:var(--ink);opacity:.32}
+  .skala .merke{position:absolute;top:22px;font-size:.68rem;color:var(--muted);transform:translateX(-50%);white-space:nowrap}
+
+  /* --- kort/seksjon --- */
+  section{margin-top:26px}
+  h2{font-family:var(--serif);font-weight:500;font-size:1.05rem;margin:0 0 10px}
+  .hint{color:var(--muted);font-size:.8rem;margin:6px 0 0}
+
+  /* --- tabeller --- */
+  table{width:100%;border-collapse:collapse;font-size:.9rem}
+  th{text-align:left;font-weight:500;color:var(--muted);font-size:.75rem;padding:0 0 6px;border-bottom:1px solid var(--line)}
+  td{padding:9px 0;border-bottom:1px solid var(--line);vertical-align:middle}
+  .num{text-align:right;white-space:nowrap}
+  tr.total td{font-weight:600;border-bottom:none;border-top:2px solid var(--ink);padding-top:11px}
+  .pos{color:var(--plus)}
+  .neg{color:var(--minus)}
+  .null0{color:var(--muted)}
+  .dag .dato{display:block}
+  .ukedag{color:var(--muted);font-size:.75rem}
+  tr.fri td{color:var(--muted)}
+  .bar{width:64px;height:10px;position:relative}
+  .bar i{position:absolute;top:1px;height:8px;border-radius:2px;display:block}
+  .bar .mid{position:absolute;top:0;bottom:0;left:50%;width:1px;background:var(--line)}
+  @media (max-width:420px){ .bar{display:none} table{font-size:.86rem} }
+
+  /* --- kontroller --- */
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+  .felt{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+  .felt:last-child{margin-bottom:0}
+  label{font-size:.8rem;color:var(--muted)}
+  input[type=text],input[type=url],select,textarea{
+    font:inherit;font-size:.92rem;padding:9px 10px;border:1px solid var(--line);
+    border-radius:8px;background:var(--surface);color:var(--ink);width:100%
+  }
+  textarea{resize:vertical;line-height:1.4}
+  .knapper{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+  button{
+    font:inherit;font-size:.88rem;font-weight:500;padding:10px 14px;border-radius:8px;
+    border:1px solid var(--ink);background:var(--ink);color:var(--paper);cursor:pointer
+  }
+  button.sekundar{background:transparent;color:var(--ink);border-color:var(--line)}
+  button:active{transform:translateY(1px)}
+
+  .slipp{
+    border:1.5px dashed var(--line);border-radius:var(--r);background:var(--surface);
+    padding:28px 18px;text-align:center
+  }
+  .slipp.over{border-color:var(--focus);background:#EEF5F8}
+  .slipp p{margin:0 0 14px;color:var(--muted);font-size:.9rem}
+  #fil{display:none}
+
+  .melding{margin-top:12px;font-size:.85rem;padding:10px 12px;border-radius:8px;background:#FBECE8;color:var(--minus);border:1px solid #EDCEC7}
+  .melding.ok{background:#E9F2EF;color:var(--plus);border-color:#CBE0D9}
+  .skjult{display:none !important}
+
+  details.detaljer summary{cursor:pointer;font-size:.85rem;color:var(--muted);padding:4px 0}
+  details.detaljer[open] summary{margin-bottom:10px}
+
+  footer{margin-top:36px;padding-top:14px;border-top:1px solid var(--line);color:var(--muted);font-size:.78rem}
+
+  @media print{
+    body{background:#fff}
+    .ikke-print{display:none !important}
+    .wrap{max-width:none;padding:0}
+    .balanse{border-color:#999}
+    a[href]:after{content:''}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <h1>Timeregnskap</h1>
+    <span class="periode" id="periode">ingen data</span>
+  </header>
+
+  <!-- Hero: balansen -->
+  <div class="balanse skjult" id="balanse">
+    <div class="tall"><span class="tegn" id="bTegn">+</span><span id="bTall">0 t 00 m</span><span class="enhet">mot målet</span></div>
+    <div class="skala" id="skala" aria-hidden="true"></div>
+    <p class="undertekst" id="bUnder"></p>
+  </div>
+
+  <!-- Innlasting -->
+  <section id="innlasting" class="ikke-print">
+    <div class="slipp" id="slipp">
+      <p id="slippTekst">Slipp CSV-filen her, eller velg den fra telefonen.</p>
+      <button type="button" id="velgFil">Velg CSV-fil</button>
+      <input type="file" id="fil" accept=".csv,text/csv,text/plain">
+    </div>
+
+    <details class="detaljer" id="flereMater">
+      <summary>Andre måter å hente filen på</summary>
+      <div class="panel">
+        <div class="felt">
+          <label for="url">Hent fra nettadresse (endepunkt, Dropbox, Drive …)</label>
+          <input type="url" id="url" placeholder="https://…/timer.csv" inputmode="url">
+        </div>
+        <div class="felt">
+          <label><input type="checkbox" id="autoHent"> Hent automatisk når appen åpnes</label>
+        </div>
+        <div class="felt">
+          <label for="lim">Eller lim inn innholdet i filen</label>
+          <textarea id="lim" rows="4" placeholder="Name;Period;Duration (sec);…"></textarea>
+        </div>
+        <div class="knapper">
+          <button type="button" id="hentUrl">Hent nå</button>
+          <button type="button" class="sekundar" id="brukLim">Bruk innlimt tekst</button>
+          <button type="button" class="sekundar" id="brukEksempel">Prøv med eksempeldata</button>
+        </div>
+      </div>
+    </details>
+
+    <div class="melding skjult" id="melding" role="status"></div>
+  </section>
+
+  <!-- Innstillinger -->
+  <section id="innstillinger" class="ikke-print skjult">
+    <details class="detaljer">
+      <summary>Innstillinger</summary>
+      <div class="panel">
+        <div class="felt">
+          <label for="mal">Mål per dag</label>
+          <input type="text" id="mal" value="7,5" inputmode="decimal" placeholder="7,5 eller 7:30">
+        </div>
+        <div class="felt">
+          <label for="regel">Hvilke dager teller mot målet</label>
+          <select id="regel">
+            <option value="ukedagMedTid">Ukedager med registrert tid</option>
+            <option value="alleMedTid">Alle dager med registrert tid</option>
+            <option value="alleUkedager">Alle ukedager i perioden, også uten tid</option>
+          </select>
+        </div>
+        <div class="felt">
+          <label for="navn">Oppdragsgiver / prosjekt</label>
+          <select id="navn"><option value="">Alle</option></select>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <!-- Uker -->
+  <section id="ukeSeksjon" class="skjult">
+    <h2>Per uke</h2>
+    <table>
+      <thead><tr>
+        <th>Uke</th><th class="num">Dager</th><th class="num">Jobbet</th><th class="num">Mål</th><th class="num">Avvik</th>
+      </tr></thead>
+      <tbody id="ukeBody"></tbody>
+    </table>
+    <p class="hint" id="snittHint"></p>
+  </section>
+
+  <!-- Dager -->
+  <section id="dagSeksjon" class="skjult">
+    <h2>Per dag</h2>
+    <table>
+      <thead><tr>
+        <th>Dato</th><th class="num">Jobbet</th><th></th><th class="num">Avvik</th>
+      </tr></thead>
+      <tbody id="dagBody"></tbody>
+    </table>
+  </section>
+
+  <section id="handlinger" class="ikke-print skjult">
+    <div class="knapper">
+      <button type="button" id="kopier">Kopier oppsummering</button>
+      <button type="button" class="sekundar" id="lastNed">Last ned regnskap som CSV</button>
+      <button type="button" class="sekundar" id="skrivUt">Skriv ut / lag PDF</button>
+      <button type="button" class="sekundar" id="nullstill">Tøm</button>
+    </div>
+  </section>
+
+  <footer>
+    Alt regnes ut i nettleseren din. Filen sendes ikke videre noe sted.
+  </footer>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- lagring (tåler at den er avslått) ---------- */
+const lager = {
+  get(k, d){ try { const v = localStorage.getItem('tr.'+k); return v === null ? d : v; } catch(e){ return d; } },
+  set(k, v){ try { localStorage.setItem('tr.'+k, v); } catch(e){} },
+  del(k){ try { localStorage.removeItem('tr.'+k); } catch(e){} }
+};
+
+/* ---------- hjelpere ---------- */
+const $ = id => document.getElementById(id);
+const UKEDAG = ['søn','man','tir','ons','tor','fre','lør'];
+
+function tilTall(s){
+  if (s === undefined || s === null) return NaN;
+  const t = String(s).replace(/\s|\u00a0/g,'').replace(',', '.');
+  if (t === '') return NaN;
+  return Number(t);
+}
+
+function parseDato(s){
+  if (!s) return null;
+  const t = String(s).trim();
+  let m;
+  if ((m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) return new Date(+m[1], +m[2]-1, +m[3]);
+  if ((m = t.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})/))) return new Date(+m[3], +m[2]-1, +m[1]);
+  if ((m = t.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2})$/))) return new Date(2000 + +m[3], +m[2]-1, +m[1]);
+  return null;
+}
+
+const nokkel = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+const kort = d => String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0');
+
+function isoUke(d){
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dag = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - dag);
+  const start = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  return { ar: t.getUTCFullYear(), uke: Math.ceil(((t - start) / 86400000 + 1) / 7) };
+}
+
+function hm(sek){
+  const a = Math.abs(Math.round(sek));
+  let t = Math.floor(a / 3600);
+  let m = Math.round((a % 3600) / 60);
+  if (m === 60){ t++; m = 0; }
+  return t + ' t ' + String(m).padStart(2,'0') + ' m';
+}
+const signert = sek => (Math.round(sek) === 0 ? '' : (sek > 0 ? '+' : '−')) + hm(sek);
+const desimal = sek => (sek / 3600).toFixed(2).replace('.', ',');
+const klasse  = sek => Math.abs(Math.round(sek/60)) === 0 ? 'null0' : (sek > 0 ? 'pos' : 'neg');
+
+function malSekunder(){
+  const raw = ($('mal').value || '7,5').trim();
+  const kolon = raw.match(/^(\d+)[:.](\d{1,2})$/);
+  if (kolon && raw.includes(':')) return (+kolon[1]) * 3600 + (+kolon[2]) * 60;
+  const n = tilTall(raw);
+  return isFinite(n) && n >= 0 ? Math.round(n * 3600) : 27000;
+}
+
+function si(tekst, ok){
+  const el = $('melding');
+  if (!tekst){ el.classList.add('skjult'); return; }
+  el.textContent = tekst;
+  el.classList.toggle('ok', !!ok);
+  el.classList.remove('skjult');
+}
+
+/* ---------- CSV ---------- */
+function skillTegn(linje){
+  const kandidater = [[';', 0], [',', 0], ['\t', 0]];
+  let q = false;
+  for (const c of linje){
+    if (c === '"') q = !q;
+    if (q) continue;
+    for (const k of kandidater) if (c === k[0]) k[1]++;
+  }
+  kandidater.sort((a,b) => b[1] - a[1]);
+  return kandidater[0][1] > 0 ? kandidater[0][0] : ';';
+}
+
+function delLinje(linje, d){
+  const ut = []; let cur = ''; let q = false;
+  for (let i = 0; i < linje.length; i++){
+    const c = linje[i];
+    if (q){
+      if (c === '"'){ if (linje[i+1] === '"'){ cur += '"'; i++; } else q = false; }
+      else cur += c;
+    } else if (c === '"') q = true;
+    else if (c === d){ ut.push(cur); cur = ''; }
+    else cur += c;
+  }
+  ut.push(cur);
+  return ut.map(s => s.trim());
+}
+
+const rens = s => String(s).toLowerCase().replace(/[^a-z0-9æøå]/g, '');
+
+function finnKolonner(hode){
+  const n = hode.map(rens);
+  const finn = re => n.findIndex(h => re.test(h));
+  return {
+    dato: finn(/^(periode|period|dato|date|dag|day)/),
+    varighet: finn(/(duration|varighet|totalsek|totalsekunder|sekundertotalt)/),
+    timer: finn(/^(hours|hrs|timer|time|t)$/),
+    min: finn(/^(minutes|minutter|min|m)$/),
+    sek: finn(/^(seconds|sekunder|sek|s)$/),
+    navn: finn(/(name|navn|prosjekt|project|kunde|client|oppdrag)/)
+  };
+}
+
+function lesCsv(tekst){
+  const ren = String(tekst).replace(/^\uFEFF/, '').trim();
+  if (!ren) throw new Error('Filen er tom.');
+  const linjer = ren.split(/\r?\n/).filter(l => l.trim() !== '');
+  const d = skillTegn(linjer[0]);
+  const rader = linjer.map(l => delLinje(l, d));
+
+  let k = finnKolonner(rader[0]);
+  let start = 1;
+  const harHode = k.dato >= 0 || k.varighet >= 0;
+  if (!harHode){
+    // Ingen gjenkjent overskrift: anta rekkefølgen navn;dato;sekunder
+    k = { navn: 0, dato: 1, varighet: 2, timer: 3, min: 4, sek: 5 };
+    start = 0;
+    if (parseDato(rader[0][1]) === null && parseDato(rader[0][0]) !== null){
+      k = { navn: -1, dato: 0, varighet: 1, timer: -1, min: -1, sek: -1 };
+    }
+  }
+  if (k.dato < 0) throw new Error('Fant ingen datokolonne i filen.');
+
+  const poster = [];
+  const hoppet = [];
+  for (let i = start; i < rader.length; i++){
+    const r = rader[i];
+    const dato = parseDato(r[k.dato]);
+    if (!dato || isNaN(dato)){ hoppet.push(i + 1); continue; }
+    let sek = k.varighet >= 0 ? tilTall(r[k.varighet]) : NaN;
+    if (!isFinite(sek)){
+      const t = k.timer >= 0 ? tilTall(r[k.timer]) : 0;
+      const m = k.min   >= 0 ? tilTall(r[k.min])   : 0;
+      const s = k.sek   >= 0 ? tilTall(r[k.sek])   : 0;
+      sek = (isFinite(t)?t:0) * 3600 + (isFinite(m)?m:0) * 60 + (isFinite(s)?s:0);
+    }
+    poster.push({ dato, sek: Math.max(0, Math.round(sek)), navn: k.navn >= 0 ? (r[k.navn] || '') : '' });
+  }
+  if (!poster.length) throw new Error('Fant ingen rader med dato og tid i filen.');
+  return { poster, hoppet };
+}
+
+/* ---------- beregning ---------- */
+let data = null; // { poster, hoppet }
+
+function beregn(){
+  const mal = malSekunder();
+  const regel = $('regel').value;
+  const valgtNavn = $('navn').value;
+
+  const poster = data.poster.filter(p => !valgtNavn || p.navn === valgtNavn);
+  if (!poster.length) return null;
+
+  const perDag = new Map();
+  for (const p of poster){
+    const n = nokkel(p.dato);
+    const f = perDag.get(n);
+    if (f) f.sek += p.sek;
+    else perDag.set(n, { dato: p.dato, sek: p.sek });
+  }
+
+  let dager = [...perDag.values()].sort((a,b) => a.dato - b.dato);
+
+  if (regel === 'alleUkedager'){
+    // fyll inn manglende ukedager mellom første og siste dato
+    const d = new Date(dager[0].dato), slutt = dager[dager.length-1].dato;
+    while (d <= slutt){
+      const n = nokkel(d);
+      if (!perDag.has(n) && d.getDay() >= 1 && d.getDay() <= 5) perDag.set(n, { dato: new Date(d), sek: 0 });
+      d.setDate(d.getDate() + 1);
+    }
+    dager = [...perDag.values()].sort((a,b) => a.dato - b.dato);
+  }
+
+  for (const dag of dager){
+    const ukedag = dag.dato.getDay() >= 1 && dag.dato.getDay() <= 5;
+    dag.teller =
+      regel === 'alleMedTid'   ? dag.sek > 0 :
+      regel === 'alleUkedager' ? ukedag :
+                                 (ukedag && dag.sek > 0);
+    dag.mal  = dag.teller ? mal : 0;
+    dag.diff = dag.sek - dag.mal;
+  }
+
+  // uker
+  const uker = new Map();
+  for (const dag of dager){
+    const u = isoUke(dag.dato);
+    const n = u.ar + '-' + String(u.uke).padStart(2,'0');
+    let rad = uker.get(n);
+    if (!rad){ rad = { navn: 'Uke ' + u.uke, sort: n, sek: 0, mal: 0, dager: 0, fra: dag.dato, til: dag.dato }; uker.set(n, rad); }
+    rad.sek += dag.sek; rad.mal += dag.mal;
+    if (dag.teller) rad.dager++;
+    if (dag.dato < rad.fra) rad.fra = dag.dato;
+    if (dag.dato > rad.til) rad.til = dag.dato;
+  }
+  const ukeliste = [...uker.values()].sort((a,b) => a.sort < b.sort ? -1 : 1);
+  for (const u of ukeliste) u.diff = u.sek - u.mal;
+
+  const sum     = dager.reduce((a,d) => a + d.sek, 0);
+  const sumMal  = dager.reduce((a,d) => a + d.mal, 0);
+  const teller  = dager.filter(d => d.teller).length;
+
+  return {
+    mal, dager, uker: ukeliste, sum, sumMal, diff: sum - sumMal, tellerDager: teller,
+    snittDag: teller ? sum / teller : 0,
+    snittUke: ukeliste.length ? sum / ukeliste.length : 0,
+    malUke: ukeliste.length ? sumMal / ukeliste.length : 0
+  };
+}
+
+/* ---------- visning ---------- */
+let siste = null;
+
+function tegn(){
+  if (!data) return;
+  const r = beregn();
+  siste = r;
+  if (!r){ si('Ingen rader for dette valget.'); return; }
+
+  const f = r.dager[0].dato, t = r.dager[r.dager.length-1].dato;
+  $('periode').textContent = kort(f) + '–' + kort(t) + '.' + t.getFullYear();
+
+  // hero
+  const b = $('balanse');
+  b.classList.remove('skjult', 'pos', 'neg');
+  const rundet = Math.round(r.diff / 60);
+  if (rundet > 0) b.classList.add('pos'); else if (rundet < 0) b.classList.add('neg');
+  $('bTegn').textContent = rundet === 0 ? '±' : (rundet > 0 ? '+' : '−');
+  $('bTall').textContent = hm(r.diff);
+  $('bUnder').textContent =
+    hm(r.sum) + ' jobbet på ' + r.tellerDager + ' dager · mål ' + hm(r.sumMal) +
+    ' (' + desimal(r.mal) + ' t per dag) · snitt ' + hm(r.snittDag) + ' per dag';
+
+  tegnSkala(r);
+
+  // uketabell
+  const ub = $('ukeBody');
+  ub.innerHTML = '';
+  for (const u of r.uker){
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td>' + u.navn + ' <span class="ukedag">' + kort(u.fra) + '–' + kort(u.til) + '</span></td>' +
+      '<td class="num">' + u.dager + '</td>' +
+      '<td class="num">' + hm(u.sek) + '</td>' +
+      '<td class="num">' + hm(u.mal) + '</td>' +
+      '<td class="num ' + klasse(u.diff) + '">' + (signert(u.diff) || '0 t 00 m') + '</td>';
+    ub.appendChild(tr);
+  }
+  const tr = document.createElement('tr');
+  tr.className = 'total';
+  tr.innerHTML =
+    '<td>Totalt</td><td class="num">' + r.tellerDager + '</td>' +
+    '<td class="num">' + hm(r.sum) + '</td><td class="num">' + hm(r.sumMal) + '</td>' +
+    '<td class="num ' + klasse(r.diff) + '">' + (signert(r.diff) || '0 t 00 m') + '</td>';
+  ub.appendChild(tr);
+
+  const ukeDiff = r.snittUke - r.malUke;
+  $('snittHint').textContent =
+    'Snitt per uke: ' + hm(r.snittUke) + ' mot et ukesmål på ' + hm(r.malUke) + ' — ' +
+    (Math.round(ukeDiff/60) === 0 ? 'akkurat på snittet.' :
+      (ukeDiff > 0 ? hm(ukeDiff) + ' over snittet per uke.' : hm(ukeDiff) + ' under snittet per uke.'));
+
+  // dagtabell
+  const maksAvvik = Math.max(7200, ...r.dager.map(d => Math.abs(d.diff)));
+  const db = $('dagBody');
+  db.innerHTML = '';
+  for (const d of r.dager){
+    const andel = Math.min(1, Math.abs(d.diff) / maksAvvik) * 50;
+    const farge = d.diff > 0 ? 'var(--plus)' : 'var(--minus)';
+    const stolpe = Math.round(Math.abs(d.diff)/60) === 0 ? '' :
+      (d.diff > 0
+        ? '<i style="left:50%;width:' + andel + '%;background:' + farge + '"></i>'
+        : '<i style="right:50%;width:' + andel + '%;background:' + farge + '"></i>');
+    const rad = document.createElement('tr');
+    if (!d.teller && d.sek === 0) rad.className = 'fri';
+    rad.innerHTML =
+      '<td class="dag"><span class="dato">' + kort(d.dato) + '</span>' +
+        '<span class="ukedag">' + UKEDAG[d.dato.getDay()] + (d.teller ? '' : ' · teller ikke') + '</span></td>' +
+      '<td class="num">' + hm(d.sek) + '</td>' +
+      '<td><span class="bar"><span class="mid"></span>' + stolpe + '</span></td>' +
+      '<td class="num ' + klasse(d.diff) + '">' + (d.teller ? (signert(d.diff) || '0 t 00 m') : '–') + '</td>';
+    db.appendChild(rad);
+  }
+  const tot = document.createElement('tr');
+  tot.className = 'total';
+  tot.innerHTML =
+    '<td>Totalt (' + desimal(r.sum) + ' timer)</td>' +
+    '<td class="num">' + hm(r.sum) + '</td><td></td>' +
+    '<td class="num ' + klasse(r.diff) + '">' + (signert(r.diff) || '0 t 00 m') + '</td>';
+  db.appendChild(tot);
+
+  $('ukeSeksjon').classList.remove('skjult');
+  $('dagSeksjon').classList.remove('skjult');
+  $('handlinger').classList.remove('skjult');
+  $('innstillinger').classList.remove('skjult');
+  $('slippTekst').textContent = 'Slipp en ny CSV-fil her for å bytte grunnlag.';
+}
+
+function tegnSkala(r){
+  const el = $('skala');
+  const maks = Math.max(1800, Math.abs(r.diff), ...r.uker.map(u => Math.abs(u.diff)));
+  const halv = 44; // prosent ut fra midten
+  const lengde = (Math.abs(r.diff) / maks) * halv;
+  const venstre = r.diff >= 0 ? 50 : 50 - lengde;
+  const ende = (maks / 3600).toFixed(1).replace('.', ',') + ' t';
+
+  let html = '<span class="akse"></span>';
+  html += '<span class="stolpe" style="left:' + venstre + '%;width:' + Math.max(lengde, 0.8) + '%;' +
+          'background:' + (r.diff >= 0 ? 'var(--plus)' : 'var(--minus)') + '"></span>';
+  for (const u of r.uker){
+    html += '<span class="tick" style="left:' + (50 + (u.diff / maks) * halv) + '%"></span>';
+  }
+  html += '<span class="null" style="left:50%"></span>';
+  html += '<span class="merke" style="left:50%">0</span>';
+  html += '<span class="merke" style="left:' + (50 - halv) + '%">−' + ende + '</span>';
+  html += '<span class="merke" style="left:' + (50 + halv) + '%">+' + ende + '</span>';
+  el.innerHTML = html;
+  el.title = 'Samlet avvik. Strekene viser hver enkelt uke.';
+}
+
+/* ---------- eksport ---------- */
+function oppsummering(){
+  const r = siste;
+  if (!r) return '';
+  const l = [];
+  l.push('Timeregnskap ' + $('periode').textContent);
+  l.push('Mål per dag: ' + desimal(r.mal) + ' timer');
+  l.push('');
+  for (const d of r.dager){
+    l.push(kort(d.dato) + ' ' + UKEDAG[d.dato.getDay()] + '  ' + hm(d.sek) +
+      (d.teller ? '  (' + (signert(d.diff) || '0 t 00 m') + ')' : ''));
+  }
+  l.push('');
+  for (const u of r.uker) l.push(u.navn + ': ' + hm(u.sek) + ' av ' + hm(u.mal) + '  (' + (signert(u.diff) || '0 t 00 m') + ')');
+  l.push('');
+  l.push('Totalt jobbet: ' + hm(r.sum) + ' (' + desimal(r.sum) + ' timer)');
+  l.push('Mål totalt: ' + hm(r.sumMal) + ' på ' + r.tellerDager + ' dager');
+  l.push('Avvik: ' + (signert(r.diff) || '0 t 00 m'));
+  l.push('Snitt per dag: ' + hm(r.snittDag));
+  l.push('Snitt per uke: ' + hm(r.snittUke) + ' (mål ' + hm(r.malUke) + ', avvik ' + (signert(r.snittUke - r.malUke) || '0 t 00 m') + ')');
+  return l.join('\n');
+}
+
+function lastNedCsv(){
+  const r = siste;
+  if (!r) return;
+  const rader = [['Dato','Ukedag','Uke','Timer','Minutter','Desimaltimer','Mal','Avvik (desimaltimer)']];
+  for (const d of r.dager){
+    const t = Math.floor(d.sek / 3600), m = Math.round((d.sek % 3600) / 60);
+    rader.push([
+      nokkel(d.dato), UKEDAG[d.dato.getDay()], 'Uke ' + isoUke(d.dato).uke,
+      t, m, desimal(d.sek), d.teller ? desimal(d.mal) : '', d.teller ? desimal(d.diff) : ''
+    ]);
+  }
+  rader.push([]);
+  for (const u of r.uker) rader.push([u.navn, '', '', '', '', desimal(u.sek), desimal(u.mal), desimal(u.diff)]);
+  rader.push([]);
+  rader.push(['Totalt', '', '', Math.floor(r.sum/3600), Math.round((r.sum%3600)/60), desimal(r.sum), desimal(r.sumMal), desimal(r.diff)]);
+
+  const csv = '\uFEFF' + rader.map(rad => rad.join(';')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = 'timeregnskap-' + nokkel(r.dager[0].dato) + '-' + nokkel(r.dager[r.dager.length-1].dato) + '.csv';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+/* ---------- last inn ---------- */
+function last(tekst, kilde){
+  try {
+    data = lesCsv(tekst);
+    lager.set('csv', tekst);
+    const navn = [...new Set(data.poster.map(p => p.navn).filter(Boolean))];
+    const sel = $('navn');
+    sel.innerHTML = '<option value="">Alle</option>' + navn.map(n => '<option>' + n + '</option>').join('');
+    sel.parentElement.style.display = navn.length > 1 ? '' : 'none';
+    si(data.hoppet.length
+      ? 'Lest inn ' + data.poster.length + ' rader. Hoppet over ' + data.hoppet.length + ' rad(er) uten gyldig dato.'
+      : 'Lest inn ' + data.poster.length + ' rader' + (kilde ? ' fra ' + kilde : '') + '.', true);
+    $('flereMater').open = false;
+    tegn();
+  } catch (e){
+    si(e.message + ' Sjekk at filen har en datokolonne og en kolonne med sekunder eller timer.');
+  }
+}
+
+function lesFil(file){
+  const r = new FileReader();
+  r.onload = () => last(String(r.result), file.name);
+  r.onerror = () => si('Fikk ikke lest filen.');
+  r.readAsText(file, 'utf-8');
+}
+
+async function hentFraUrl(vis){
+  const u = $('url').value.trim();
+  if (!u){ if (vis) si('Skriv inn en nettadresse først.'); return; }
+  lager.set('url', u);
+  try {
+    const res = await fetch(u, { cache: 'no-store' });
+    if (!res.ok) throw new Error('Serveren svarte ' + res.status + '.');
+    last(await res.text(), 'nettadressen');
+  } catch (e){
+    si('Klarte ikke å hente fra nettadressen: ' + e.message + ' Hvis adressen ikke tillater deling på tvers av nettsteder (CORS), må serveren sette Access-Control-Allow-Origin.');
+  }
+}
+
+const EKSEMPEL = `Name;Period;Duration (sec);Hours;Minutes;Seconds
+Skatteetaten;2026-09-11;22500;6;15;0
+Skatteetaten;2026-09-10;25920;7;12;0
+Skatteetaten;2026-09-09;27900;7;45;0
+Skatteetaten;2026-09-08;28832;8;0;32
+Skatteetaten;2026-09-07;27000;7;30;0
+Skatteetaten;2026-09-06;0;0;0;0
+Skatteetaten;2026-09-05;0;0;0;0
+Skatteetaten;2026-09-04;0;0;0;0
+Skatteetaten;2026-09-03;0;0;0;0
+Skatteetaten;2026-09-02;25200;7;0;0
+Skatteetaten;2026-09-01;27000;7;30;0`;
+
+/* ---------- hendelser ---------- */
+$('velgFil').addEventListener('click', () => $('fil').click());
+$('fil').addEventListener('change', e => { if (e.target.files[0]) lesFil(e.target.files[0]); });
+
+const slipp = $('slipp');
+['dragenter','dragover'].forEach(n => slipp.addEventListener(n, e => { e.preventDefault(); slipp.classList.add('over'); }));
+['dragleave','drop'].forEach(n => slipp.addEventListener(n, e => { e.preventDefault(); slipp.classList.remove('over'); }));
+slipp.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) lesFil(f); });
+
+$('hentUrl').addEventListener('click', () => hentFraUrl(true));
+$('brukLim').addEventListener('click', () => { const v = $('lim').value.trim(); if (v) last(v.replace(/\\n/g, '\n'), 'innlimt tekst'); else si('Lim inn innholdet først.'); });
+$('brukEksempel').addEventListener('click', () => last(EKSEMPEL, 'eksempelet'));
+$('autoHent').addEventListener('change', e => lager.set('auto', e.target.checked ? '1' : '0'));
+
+['mal','regel','navn'].forEach(id => $(id).addEventListener('change', () => {
+  lager.set(id, $(id).value);
+  if (data) tegn();
+}));
+$('mal').addEventListener('input', () => { if (data) tegn(); });
+
+$('kopier').addEventListener('click', async () => {
+  const t = oppsummering();
+  try { await navigator.clipboard.writeText(t); si('Oppsummeringen er kopiert.', true); }
+  catch (e){ $('lim').value = t; si('Kunne ikke kopiere automatisk. Teksten ligger i feltet under «Andre måter».'); }
+});
+$('lastNed').addEventListener('click', lastNedCsv);
+$('skrivUt').addEventListener('click', () => window.print());
+$('nullstill').addEventListener('click', () => {
+  data = null; siste = null;
+  lager.del('csv');
+  ['balanse','ukeSeksjon','dagSeksjon','handlinger','innstillinger'].forEach(id => $(id).classList.add('skjult'));
+  $('periode').textContent = 'ingen data';
+  $('slippTekst').textContent = 'Slipp CSV-filen her, eller velg den fra telefonen.';
+  si('');
+});
+
+/* ---------- oppstart ---------- */
+function dekodData(s){
+  let t = s;
+  try {
+    const b = atob(s.replace(/-/g, '+').replace(/_/g, '/'));
+    t = new TextDecoder('utf-8').decode(Uint8Array.from(b, c => c.charCodeAt(0)));
+  } catch (e){
+    try { t = decodeURIComponent(s); } catch (e2){ t = s; }
+  }
+  return t;
+}
+
+$('mal').value = lager.get('mal', '7,5');
+$('regel').value = lager.get('regel', 'ukedagMedTid');
+$('url').value = lager.get('url', '');
+$('autoHent').checked = lager.get('auto', '0') === '1';
+
+(async function start(){
+  const p = new URLSearchParams(location.search);
+
+  // CSV sendt inn i lenken, f.eks. fra en Snarvei på iPhone:  …/#data=<base64>
+  const iLenke = (location.hash.match(/[#&]data=([^&]*)/) || [])[1] || p.get('data');
+  if (iLenke){
+    last(dekodData(iLenke), 'lenken');
+    history.replaceState({}, '', location.pathname);
+    return;
+  }
+
+  // delt fra en annen app via delingsmenyen (Android)
+  if (p.has('delt')){
+    try {
+      const c = await caches.open('deling');
+      const svar = await c.match('delt-fil');
+      if (svar){ last(await svar.text(), 'delingsmenyen'); await c.delete('delt-fil'); history.replaceState({}, '', location.pathname); return; }
+    } catch (e){}
+  }
+  if (p.get('url')){ $('url').value = p.get('url'); await hentFraUrl(false); return; }
+  if ($('autoHent').checked && $('url').value){ await hentFraUrl(false); return; }
+
+  const lagret = lager.get('csv', '');
+  if (lagret){ last(lagret, 'forrige gang'); si(''); }
+})();
+
+if ('serviceWorker' in navigator && location.protocol === 'https:'){
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+})();
+</script>
+</body>
+</html>
