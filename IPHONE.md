@@ -77,17 +77,20 @@ så du trenger verken server, token eller ventetid. Regnestykket skjer i Safari.
 | --- | --- |
 | Hent tekst fra inndata | inndata = Snarveiinndata |
 | Base64-koding | kod Tekst |
-| Hent navn | inndata = Snarveiinndata |
-| URL-kod | kod variabelen **Navn** |
-| Tekst | `https://<brukernavn>.github.io/timeregnskap/#data=` + **Base64-kodet** + `&navn=` + **URL-kodet** |
+| Erstatt tekst | søk `+`, erstatt med `-`, i **Base64-kodet innhold** |
+| Erstatt tekst | søk `/`, erstatt med `_`, i resultatet fra forrige Erstatt-boks |
+| Tekst | `https://<brukernavn>.github.io/timeregnskap/#data=` + resultatet fra siste Erstatt-boks |
 | Åpne URL-er | variabelen **Tekst** |
+
+De to «Erstatt tekst»-stegene er ikke valgfrie: Shortcuts sin URL-handling
+godtar ikke `+` og `/` (tegn base64 alltid bruker) rått i en lenke og gir
+«Ugyldig URL» uten dem. Nettsiden er laget for nettopp denne URL-trygge
+varianten av base64 og bytter dem tilbake selv.
 
 Del CSV-en til snarveien, så åpner siden seg med tallene ferdig utregnet. En
 måned med data blir en lenke på under tusen tegn, så det er god plass.
-
-Filnavnet trenger ikke være `timer.csv` eller noe fast — hva CSV-filen enn
-heter, sendes navnet med i lenken og vises øverst i rapporten, slik at du ser
-hvilken fil tallene kommer fra.
+Filnavnet trenger ikke være `timer.csv` eller noe fast — CSV-en kan hete hva
+som helst, siden det bare er *innholdet* som sendes.
 
 Ulempen: tallene vises bare på telefonen der du åpnet lenken. Siden husker
 riktignok siste fil lokalt, så neste gang du åpner den vanlige adressen ligger
