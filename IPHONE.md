@@ -70,8 +70,14 @@ curl -X POST https://api.github.com/repos/<brukernavn>/timeregnskap/dispatches \
 
 ## 2. Uten token: send filen i lenken
 
-Nettleserversjonen (`timeregnskap/index.html`) leser CSV-en rett ut av adressen,
-så du trenger verken server, token eller ventetid. Regnestykket skjer i Safari.
+Nettleserversjonen (mappa `nettleser/`, publisert på `…/timeregnskap/app/`)
+leser CSV-en rett ut av adressen, så du trenger verken server, token eller
+ventetid. Regnestykket skjer i Safari.
+
+**Merk `/app/` i adressen.** Roten `…/timeregnskap/` er den ferdig utregnede
+rapporten GitHub lager (metode 1) og leser ikke `#data=` — den viser bare siste
+kjøring. Den interaktive versjonen som tar imot lenken ligger på
+`…/timeregnskap/app/`.
 
 | Handling | Innstilling |
 | --- | --- |
@@ -79,7 +85,7 @@ så du trenger verken server, token eller ventetid. Regnestykket skjer i Safari.
 | Base64-koding | kod Tekst |
 | Erstatt tekst | søk `+`, erstatt med `-`, i **Base64-kodet innhold** |
 | Erstatt tekst | søk `/`, erstatt med `_`, i resultatet fra forrige Erstatt-boks |
-| Tekst | `https://<brukernavn>.github.io/timeregnskap/#data=` + resultatet fra siste Erstatt-boks |
+| Tekst | `https://<brukernavn>.github.io/timeregnskap/app/#data=` + resultatet fra siste Erstatt-boks |
 | Åpne URL-er | variabelen **Tekst** |
 
 De to «Erstatt tekst»-stegene er ikke valgfrie: Shortcuts sin URL-handling
