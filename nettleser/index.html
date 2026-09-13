@@ -272,6 +272,8 @@ function tilTall(s){
   return Number(t);
 }
 
+const MND = {jan:0,feb:1,mar:2,apr:3,may:4,mai:4,jun:5,jul:6,aug:7,sep:8,oct:9,okt:9,nov:10,dec:11,des:11};
+
 function parseDato(s){
   if (!s) return null;
   const t = String(s).trim();
@@ -279,6 +281,29 @@ function parseDato(s){
   if ((m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) return new Date(+m[1], +m[2]-1, +m[3]);
   if ((m = t.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})/))) return new Date(+m[3], +m[2]-1, +m[1]);
   if ((m = t.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2})$/))) return new Date(2000 + +m[3], +m[2]-1, +m[1]);
+
+  // Månedsnavn, f.eks. «Sun, 13 Sep», «13 Sep 2026», «Sep 13» — ukedag og år
+  // valgfritt (appen på telefonen eksporterer typisk dette formatet).
+  const uten = t.replace(/^[a-zæøå]{3,}\.?,\s*/i, '');   // fjern evt. «Sun, »
+  let dag, mnd, ar;
+  if ((m = uten.match(/^(\d{1,2})\.?\s+([a-zæøå]{3,})\.?(?:,?\s+(\d{2,4}))?$/i))){
+    dag = +m[1]; mnd = MND[m[2].slice(0,3).toLowerCase()]; ar = m[3];
+  } else if ((m = uten.match(/^([a-zæøå]{3,})\.?\s+(\d{1,2})(?:,?\s+(\d{2,4}))?$/i))){
+    mnd = MND[m[1].slice(0,3).toLowerCase()]; dag = +m[2]; ar = m[3];
+  }
+  if (dag !== undefined && mnd !== undefined){
+    let y;
+    if (ar) y = String(ar).length === 2 ? 2000 + +ar : +ar;
+    else {
+      // Uten år: anta inneværende år, men hopp et år tilbake hvis datoen da
+      // havner langt fram i tid (typisk desember-data lest i januar).
+      const naa = new Date();
+      y = naa.getFullYear();
+      if (new Date(y, mnd, dag) - naa > 183 * 86400000) y -= 1;
+    }
+    const d = new Date(y, mnd, dag);
+    return isNaN(d) ? null : d;
+  }
   return null;
 }
 
