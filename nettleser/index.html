@@ -171,6 +171,9 @@
           <input type="text" id="mal" value="7,5" inputmode="decimal" placeholder="7,5 eller 7:30">
         </div>
         <div class="felt">
+          <label><input type="checkbox" id="lunsj"> Trekk fra 30 min lunsj (kun ukedager)</label>
+        </div>
+        <div class="felt">
           <label for="regel">Hvilke dager teller mot målet</label>
           <select id="regel">
             <option value="ukedagMedTid">Ukedager med registrert tid</option>
@@ -469,8 +472,11 @@ function beregn(){
     dager = [...perDag.values()].sort((a,b) => a.dato - b.dato);
   }
 
+  const lunsj = $('lunsj').checked ? 30 * 60 : 0;
   for (const dag of dager){
     const ukedag = dag.dato.getDay() >= 1 && dag.dato.getDay() <= 5;
+    // Trekk fra ubetalt lunsj én gang per ukedag med registrert tid.
+    if (lunsj && ukedag && dag.sek > 0) dag.sek = Math.max(0, dag.sek - lunsj);
     dag.teller =
       regel === 'alleMedTid'   ? dag.sek > 0 :
       regel === 'alleUkedager' ? ukedag :
@@ -739,6 +745,7 @@ $('hentUrl').addEventListener('click', () => hentFraUrl(true));
 $('brukLim').addEventListener('click', () => { const v = $('lim').value.trim(); if (v) last(v.replace(/\\n/g, '\n'), 'innlimt tekst', null); else si('Lim inn innholdet først.'); });
 $('brukEksempel').addEventListener('click', () => last(EKSEMPEL, 'eksempelet', null));
 $('autoHent').addEventListener('change', e => lager.set('auto', e.target.checked ? '1' : '0'));
+$('lunsj').addEventListener('change', e => { lager.set('lunsj', e.target.checked ? '1' : '0'); if (data) tegn(); });
 
 ['mal','regel','navn'].forEach(id => $(id).addEventListener('change', () => {
   lager.set(id, $(id).value);
@@ -779,6 +786,7 @@ $('mal').value = lager.get('mal', '7,5');
 $('regel').value = lager.get('regel', 'ukedagMedTid');
 $('url').value = lager.get('url', '');
 $('autoHent').checked = lager.get('auto', '0') === '1';
+$('lunsj').checked = lager.get('lunsj', '0') === '1';
 
 function sjekkLenke(){
   const p = new URLSearchParams(location.search);
