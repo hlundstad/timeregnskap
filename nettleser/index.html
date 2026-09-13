@@ -155,36 +155,8 @@
     <p class="undertekst" id="bUnder"></p>
   </div>
 
-  <!-- Innlasting -->
+  <!-- Statusmelding (blir øverst så feil/bekreftelser synes med en gang) -->
   <section id="innlasting" class="ikke-print">
-    <div class="slipp" id="slipp">
-      <p id="slippTekst">Slipp CSV-filen her, eller velg den fra telefonen.</p>
-      <button type="button" id="velgFil">Velg CSV-fil</button>
-      <input type="file" id="fil" accept=".csv,text/csv,text/plain">
-    </div>
-
-    <details class="detaljer" id="flereMater">
-      <summary>Andre måter å hente filen på</summary>
-      <div class="panel">
-        <div class="felt">
-          <label for="url">Hent fra nettadresse (endepunkt, Dropbox, Drive …)</label>
-          <input type="url" id="url" placeholder="https://…/timer.csv" inputmode="url">
-        </div>
-        <div class="felt">
-          <label><input type="checkbox" id="autoHent"> Hent automatisk når appen åpnes</label>
-        </div>
-        <div class="felt">
-          <label for="lim">Eller lim inn innholdet i filen</label>
-          <textarea id="lim" rows="4" placeholder="Name;Period;Duration (sec);…"></textarea>
-        </div>
-        <div class="knapper">
-          <button type="button" id="hentUrl">Hent nå</button>
-          <button type="button" class="sekundar" id="brukLim">Bruk innlimt tekst</button>
-          <button type="button" class="sekundar" id="brukEksempel">Prøv med eksempeldata</button>
-        </div>
-      </div>
-    </details>
-
     <div class="melding skjult" id="melding" role="status"></div>
   </section>
 
@@ -243,6 +215,37 @@
       <button type="button" class="sekundar" id="skrivUt">Skriv ut / lag PDF</button>
       <button type="button" class="sekundar" id="nullstill">Tøm</button>
     </div>
+  </section>
+
+  <!-- Innlasting: nederst siden den brukes minst (data kommer oftest via lenke) -->
+  <section id="innlastingBunn" class="ikke-print">
+    <div class="slipp" id="slipp">
+      <p id="slippTekst">Slipp CSV-filen her, eller velg den fra telefonen.</p>
+      <button type="button" id="velgFil">Velg CSV-fil</button>
+      <input type="file" id="fil" accept=".csv,text/csv,text/plain">
+    </div>
+
+    <details class="detaljer" id="flereMater">
+      <summary>Andre måter å hente filen på</summary>
+      <div class="panel">
+        <div class="felt">
+          <label for="url">Hent fra nettadresse (endepunkt, Dropbox, Drive …)</label>
+          <input type="url" id="url" placeholder="https://…/timer.csv" inputmode="url">
+        </div>
+        <div class="felt">
+          <label><input type="checkbox" id="autoHent"> Hent automatisk når appen åpnes</label>
+        </div>
+        <div class="felt">
+          <label for="lim">Eller lim inn innholdet i filen</label>
+          <textarea id="lim" rows="4" placeholder="Name;Period;Duration (sec);…"></textarea>
+        </div>
+        <div class="knapper">
+          <button type="button" id="hentUrl">Hent nå</button>
+          <button type="button" class="sekundar" id="brukLim">Bruk innlimt tekst</button>
+          <button type="button" class="sekundar" id="brukEksempel">Prøv med eksempeldata</button>
+        </div>
+      </div>
+    </details>
   </section>
 
   <footer>
@@ -552,7 +555,7 @@ function tegn(){
   const maksAvvik = Math.max(7200, ...r.dager.map(d => Math.abs(d.diff)));
   const db = $('dagBody');
   db.innerHTML = '';
-  for (const d of r.dager){
+  for (const d of [...r.dager].reverse()){
     const andel = Math.min(1, Math.abs(d.diff) / maksAvvik) * 50;
     const farge = d.diff > 0 ? 'var(--plus)' : 'var(--minus)';
     const stolpe = Math.round(Math.abs(d.diff)/60) === 0 ? '' :
