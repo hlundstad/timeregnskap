@@ -551,25 +551,30 @@ function tegn(){
     (Math.round(ukeDiff/60) === 0 ? 'akkurat på snittet.' :
       (ukeDiff > 0 ? hm(ukeDiff) + ' over snittet per uke.' : hm(ukeDiff) + ' under snittet per uke.'));
 
-  // dagtabell
-  const maksAvvik = Math.max(7200, ...r.dager.map(d => Math.abs(d.diff)));
+  // dagtabell. Skalaen baseres på dager med dagmål, så en stor plusspost i
+  // helgen ikke trykker hverdagsstolpene flate.
+  const maksAvvik = Math.max(7200, ...r.dager.filter(d => d.teller).map(d => Math.abs(d.diff)));
   const db = $('dagBody');
   db.innerHTML = '';
   for (const d of [...r.dager].reverse()){
+    // Dager uten dagmål (helg o.l.): timer der er ren plusstid, aldri minus.
+    const pluss = !d.teller && d.sek > 0;
+    const visAvvik = d.teller || pluss;
     const andel = Math.min(1, Math.abs(d.diff) / maksAvvik) * 50;
     const farge = d.diff > 0 ? 'var(--plus)' : 'var(--minus)';
-    const stolpe = Math.round(Math.abs(d.diff)/60) === 0 ? '' :
+    const stolpe = (!visAvvik || Math.round(Math.abs(d.diff)/60) === 0) ? '' :
       (d.diff > 0
         ? '<i style="left:50%;width:' + andel + '%;background:' + farge + '"></i>'
         : '<i style="right:50%;width:' + andel + '%;background:' + farge + '"></i>');
+    const etikett = d.teller ? '' : (pluss ? ' · plusstid' : ' · teller ikke');
     const rad = document.createElement('tr');
     if (!d.teller && d.sek === 0) rad.className = 'fri';
     rad.innerHTML =
       '<td class="dag"><span class="dato">' + kort(d.dato) + '</span>' +
-        '<span class="ukedag">' + UKEDAG[d.dato.getDay()] + (d.teller ? '' : ' · teller ikke') + '</span></td>' +
+        '<span class="ukedag">' + UKEDAG[d.dato.getDay()] + etikett + '</span></td>' +
       '<td class="num">' + hm(d.sek) + '</td>' +
       '<td><span class="bar"><span class="mid"></span>' + stolpe + '</span></td>' +
-      '<td class="num ' + klasse(d.diff) + '">' + (d.teller ? (signert(d.diff) || '0 t 00 m') : '–') + '</td>';
+      '<td class="num ' + klasse(d.diff) + '">' + (visAvvik ? (signert(d.diff) || '0 t 00 m') : '–') + '</td>';
     db.appendChild(rad);
   }
   const tot = document.createElement('tr');
