@@ -740,8 +740,17 @@ $('autoHent').checked = lager.get('auto', '0') === '1';
 
 function sjekkLenke(){
   const p = new URLSearchParams(location.search);
-  const iLenke = (location.hash.match(/[#&]data=([^&]*)/) || [])[1] || p.get('data');
-  if (!iLenke) return false;
+  // Er data-nøkkelen med i lenken i det hele tatt? (Egen sjekk fra selve
+  // verdien, så en tom «#data=» ikke stille faller tilbake på gammel fil.)
+  const harData = /[#&]data=/.test(location.hash) || p.has('data');
+  if (!harData) return false;
+  const iLenke = ((location.hash.match(/[#&]data=([^&]*)/) || [])[1] || p.get('data') || '').trim();
+  if (!iLenke){
+    si('Lenken kom uten data. Snarveien sendte trolig en tom fil — sjekk at ' +
+       '«Hent tekst fra inndata» leser Snarvei-inndata.', false);
+    history.replaceState({}, '', location.pathname);
+    return true;
+  }
   const iNavn = (location.hash.match(/[#&]navn=([^&]*)/) || [])[1] || p.get('navn');
   const filnavn = iNavn ? decodeURIComponent(iNavn) : null;
   last(dekodData(iLenke), filnavn || 'lenken', filnavn);
