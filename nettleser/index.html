@@ -738,18 +738,27 @@ $('regel').value = lager.get('regel', 'ukedagMedTid');
 $('url').value = lager.get('url', '');
 $('autoHent').checked = lager.get('auto', '0') === '1';
 
-(async function start(){
+function sjekkLenke(){
   const p = new URLSearchParams(location.search);
-
-  // CSV sendt inn i lenken, f.eks. fra en Snarvei på iPhone:  …/#data=<base64>&navn=<filnavn>
   const iLenke = (location.hash.match(/[#&]data=([^&]*)/) || [])[1] || p.get('data');
-  if (iLenke){
-    const iNavn = (location.hash.match(/[#&]navn=([^&]*)/) || [])[1] || p.get('navn');
-    const filnavn = iNavn ? decodeURIComponent(iNavn) : null;
-    last(dekodData(iLenke), filnavn || 'lenken', filnavn);
-    history.replaceState({}, '', location.pathname);
-    return;
-  }
+  if (!iLenke) return false;
+  const iNavn = (location.hash.match(/[#&]navn=([^&]*)/) || [])[1] || p.get('navn');
+  const filnavn = iNavn ? decodeURIComponent(iNavn) : null;
+  last(dekodData(iLenke), filnavn || 'lenken', filnavn);
+  history.replaceState({}, '', location.pathname);
+  return true;
+}
+
+// Safari gjenbruker noen ganger samme fane og bytter bare det som står etter
+// # — da laster ikke siden på nytt, så vi må lytte etter det selv, ellers
+// vises den forrige rapporten selv om en ny fil ble delt inn.
+window.addEventListener('hashchange', sjekkLenke);
+window.addEventListener('pageshow', e => { if (e.persisted) sjekkLenke(); });
+
+(async function start(){
+  if (sjekkLenke()) return;
+
+  const p = new URLSearchParams(location.search);
 
   // delt fra en annen app via delingsmenyen (Android)
   if (p.has('delt')){
