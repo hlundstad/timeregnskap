@@ -171,7 +171,7 @@
           <input type="text" id="mal" value="7,5" inputmode="decimal" placeholder="7,5 eller 7:30">
         </div>
         <div class="felt">
-          <label><input type="checkbox" id="lunsj"> Trekk fra 30 min lunsj (kun ukedager)</label>
+          <label><input type="checkbox" id="lunsj" checked> Trekk fra 30 min lunsj (kun ukedager)</label>
         </div>
         <div class="felt">
           <label for="regel">Hvilke dager teller mot målet</label>
@@ -786,7 +786,7 @@ $('mal').value = lager.get('mal', '7,5');
 $('regel').value = lager.get('regel', 'ukedagMedTid');
 $('url').value = lager.get('url', '');
 $('autoHent').checked = lager.get('auto', '0') === '1';
-$('lunsj').checked = lager.get('lunsj', '0') === '1';
+$('lunsj').checked = lager.get('lunsj', '1') === '1';
 
 function sjekkLenke(){
   const p = new URLSearchParams(location.search);
