@@ -6,47 +6,30 @@
 <title>Timeregnskap</title>
 <meta name="description" content="Regn ut timer, minutter og avvik fra 7,5 timer per dag fra en CSV-fil.">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#F2F4F3" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0F1618" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#0F1618">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet">
 <style>
   :root{
-    --paper:#F2F4F3;
-    --surface:#FFFFFF;
-    --ink:#16292E;
-    --muted:#63797E;
-    --line:#D5DDDB;
-    --plus:#1C6B58;
-    --minus:#9E3B2E;
-    --focus:#2B6C8F;
-    --pluss-bg:#E9F2EF; --pluss-linje:#CBE0D9;
-    --minus-bg:#FBECE8; --minus-linje:#EDCEC7;
-    --slipp-over:#EEF5F8;
-    --brikke:#EDF1F0;
-    --skygge:0 1px 2px rgba(22,41,46,.05);
+    color-scheme: dark;
+    --paper:#0F1618;
+    --surface:#182226;
+    --ink:#E6ECEA;
+    --muted:#93A6AB;
+    --line:#2A383C;
+    --plus:#5BC6A2;
+    --minus:#E68B7C;
+    --focus:#5AA7CC;
+    --pluss-bg:#14312A; --pluss-linje:#1F4C41;
+    --minus-bg:#3A211C; --minus-linje:#5C332B;
+    --slipp-over:#16323D;
+    --brikke:#1F2A2E;
+    --skygge:0 1px 2px rgba(0,0,0,.25);
     --r:10px;
     --sans:'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
     --serif:'Newsreader', Georgia, 'Times New Roman', serif;
-  }
-  @media (prefers-color-scheme: dark){
-    :root{
-      --paper:#0F1618;
-      --surface:#182226;
-      --ink:#E6ECEA;
-      --muted:#93A6AB;
-      --line:#2A383C;
-      --plus:#5BC6A2;
-      --minus:#E68B7C;
-      --focus:#5AA7CC;
-      --pluss-bg:#14312A; --pluss-linje:#1F4C41;
-      --minus-bg:#3A211C; --minus-linje:#5C332B;
-      --slipp-over:#16323D;
-      --brikke:#1F2A2E;
-      --skygge:0 1px 2px rgba(0,0,0,.25);
-    }
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0}
@@ -174,6 +157,9 @@
   }
 
   @media print{
+    /* Skriv ut lesbart: mørk tekst på hvitt, uansett skjermtema. */
+    :root{--paper:#fff;--surface:#fff;--ink:#16292E;--muted:#555;--line:#ccc;
+      --plus:#1C6B58;--minus:#9E3B2E;--brikke:#f2f2f2;--skygge:none}
     body{background:#fff}
     .ikke-print{display:none !important}
     .wrap{max-width:none;padding:0}
