@@ -10,6 +10,7 @@ name: Timeregnskap
 
 on:
   push:
+    branches: [main]
     paths: ["nettleser/**", ".github/workflows/rapport.yml"]
   workflow_dispatch:
 
