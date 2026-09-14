@@ -90,6 +90,7 @@
   .tider{display:block;color:var(--muted);font-size:.75rem;margin-top:2px;font-variant-numeric:tabular-nums}
   td.klokke{font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--muted)}
   tr.fri td{color:var(--muted)}
+  @media (hover:hover){ tr.kanferie{cursor:pointer} tr.kanferie:hover td{background:var(--brikke)} }
   .bar{width:64px;height:10px;position:relative}
   .bar i{position:absolute;top:1px;height:8px;border-radius:2px;display:block}
   .bar .mid{position:absolute;top:0;bottom:0;left:50%;width:1px;background:var(--line)}
@@ -228,6 +229,7 @@
       </tr></thead>
       <tbody id="dagBody"></tbody>
     </table>
+    <p class="hint ikke-print" id="ferieHint"></p>
   </section>
 
   <section id="handlinger" class="ikke-print skjult">
@@ -251,9 +253,9 @@
         <div class="felt">
           <label for="regel">Hvilke dager teller mot målet</label>
           <select id="regel">
-            <option value="ukedagMedTid">Ukedager med registrert tid</option>
+            <option value="alleUkedager">Alle ukedager teller (manglende blir minus)</option>
+            <option value="ukedagMedTid">Bare ukedager med registrert tid</option>
             <option value="alleMedTid">Alle dager med registrert tid</option>
-            <option value="alleUkedager">Alle ukedager i perioden, også uten tid</option>
           </select>
         </div>
         <div class="felt">
@@ -389,6 +391,27 @@ const nokkelMnd = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2
 const kort = d => String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0');
 const MNDNAVN = ['januar','februar','mars','april','mai','juni','juli','august','september','oktober','november','desember'];
 function maanedNavn(m){ const [y, mm] = m.split('-'); const n = MNDNAVN[+mm-1]; return n.charAt(0).toUpperCase() + n.slice(1) + ' ' + y; }
+
+// Norske helligdager (faste + påske-relative). Søndager er uansett helg.
+function paskeSondag(y){
+  const a=y%19, b=Math.floor(y/100), c=y%100, d=Math.floor(b/4), e=b%4,
+    f=Math.floor((b+8)/25), g=Math.floor((b-f+1)/3), h=(19*a+b-d-g+15)%30,
+    i=Math.floor(c/4), k=c%4, l=(32+2*e+2*i-h-k)%7, m=Math.floor((a+11*h+22*l)/451),
+    mnd=Math.floor((h+l-7*m+114)/31), dag=((h+l-7*m+114)%31)+1;
+  return new Date(y, mnd-1, dag);
+}
+function erHelligdag(d){
+  const mo=d.getMonth(), da=d.getDate(), y=d.getFullYear();
+  if ((mo===0&&da===1)||(mo===4&&da===1)||(mo===4&&da===17)||(mo===11&&da===25)||(mo===11&&da===26)) return true;
+  const p=paskeSondag(y);
+  // Dag-forskjell uten klokkeslett (UTC-datoer) så avrunding aldri bommer.
+  const off=Math.round((Date.UTC(y,mo,da) - Date.UTC(y,p.getMonth(),p.getDate()))/86400000);
+  // skjærtorsdag −3, langfredag −2, 1. påskedag 0, 2. påskedag +1,
+  // Kristi himmelfart +39, 1. pinsedag +49, 2. pinsedag +50
+  return [-3,-2,0,1,39,49,50].includes(off);
+}
+function ferieSett(){ try { return new Set(JSON.parse(lager.get('ferie','[]'))); } catch(e){ return new Set(); } }
+function settFerie(s){ lager.set('ferie', JSON.stringify([...s])); }
 
 function isoUke(d){
   const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -561,25 +584,46 @@ function beregn(){
   let dager = [...perDag.values()].sort((a,b) => a.dato - b.dato);
 
   if (regel === 'alleUkedager'){
-    // fyll inn manglende ukedager mellom første og siste dato
-    const d = new Date(dager[0].dato), slutt = dager[dager.length-1].dato;
+    // Fyll inn manglende ukedager som minusdager. Område: valgt måned
+    // (til i dag for inneværende måned), ellers hele måneden. «Alle»: fra
+    // første datamåned til i dag. Helg/helligdag fylles ikke som minus.
+    const iDag = new Date(); iDag.setHours(12,0,0,0);
+    let fraFyll, tilFyll;
+    if (valgtMnd && valgtMnd !== 'alle'){
+      const [y, m] = valgtMnd.split('-').map(Number);
+      fraFyll = new Date(y, m-1, 1);
+      tilFyll = (nokkelMnd(iDag) === valgtMnd) ? iDag : new Date(y, m, 0);
+    } else {
+      fraFyll = new Date(dager[0].dato.getFullYear(), dager[0].dato.getMonth(), 1);
+      tilFyll = iDag;
+    }
+    const d = new Date(fraFyll); d.setHours(12,0,0,0);
+    const slutt = new Date(tilFyll); slutt.setHours(12,0,0,0);
     while (d <= slutt){
       const n = nokkel(d);
-      if (!perDag.has(n) && d.getDay() >= 1 && d.getDay() <= 5) perDag.set(n, { dato: new Date(d), sek: 0, merknader: [], innMin: null, utMaks: null });
+      if (!perDag.has(n) && d.getDay() >= 1 && d.getDay() <= 5)
+        perDag.set(n, { dato: new Date(d.getFullYear(), d.getMonth(), d.getDate()), sek: 0, merknader: [], innMin: null, utMaks: null });
       d.setDate(d.getDate() + 1);
     }
     dager = [...perDag.values()].sort((a,b) => a.dato - b.dato);
   }
 
+  const ferie = ferieSett();
   const lunsj = $('lunsj').checked ? 30 * 60 : 0;
   for (const dag of dager){
-    const ukedag = dag.dato.getDay() >= 1 && dag.dato.getDay() <= 5;
+    dag.ukedag = dag.dato.getDay() >= 1 && dag.dato.getDay() <= 5;
+    dag.helligdag = erHelligdag(dag.dato);
+    dag.ferie = ferie.has(nokkel(dag.dato));
     // Trekk fra ubetalt lunsj én gang per ukedag med registrert tid.
-    if (lunsj && ukedag && dag.sek > 0) dag.sek = Math.max(0, dag.sek - lunsj);
+    if (lunsj && dag.ukedag && dag.sek > 0) dag.sek = Math.max(0, dag.sek - lunsj);
+    // En «arbeidsdag» har 7,5-timersmål: ukedag som ikke er helligdag/ferie.
+    const arbeidsdag = dag.ukedag && !dag.helligdag && !dag.ferie;
     dag.teller =
-      regel === 'alleMedTid'   ? dag.sek > 0 :
-      regel === 'alleUkedager' ? ukedag :
-                                 (ukedag && dag.sek > 0);
+      regel === 'alleMedTid'   ? (dag.sek > 0 && !dag.helligdag && !dag.ferie) :
+      regel === 'alleUkedager' ? arbeidsdag :
+                                 (arbeidsdag && dag.sek > 0);
+    // Ukedager uten tid (ikke helligdag/ferie) kan merkes som ferie ved klikk.
+    dag.kanFerie = dag.ukedag && !dag.helligdag && dag.sek === 0;
     dag.mal  = dag.teller ? mal : 0;
     dag.diff = dag.sek - dag.mal;
   }
@@ -631,7 +675,7 @@ function tegn(){
   $('bTegn').textContent = rundet === 0 ? '±' : (rundet > 0 ? '+' : '−');
   $('bTall').textContent = hm(r.diff);
   $('bUnder').textContent =
-    hm(r.sum) + ' jobbet på ' + r.tellerDager + ' dager · mål ' + hm(r.sumMal) +
+    hm(r.sum) + ' på ' + r.tellerDager + ' arbeidsdager · mål ' + hm(r.sumMal) +
     ' (' + desimal(r.mal) + ' t per dag) · snitt ' + hm(r.snittDag) + ' per dag';
 
   // uketabell
@@ -667,10 +711,14 @@ function tegn(){
   const db = $('dagBody');
   db.innerHTML = '';
   for (const d of [...r.dager].reverse()){
-    // Dager uten dagmål (helg o.l.): timer der er ren plusstid, aldri minus.
+    // Dager uten dagmål (helg/helligdag/ferie): timer der er ren plusstid.
     const pluss = !d.teller && d.sek > 0;
     const visAvvik = d.teller || pluss;
-    const etikett = d.teller ? '' : (pluss ? ' · plusstid' : ' · teller ikke');
+    const etikett = d.teller ? ''
+      : d.helligdag ? ' · helligdag'
+      : d.ferie     ? ' · ferie'
+      : pluss       ? ' · plusstid'
+      :               ' · teller ikke';
     const merknad = [...new Set((d.merknader || []).filter(Boolean))].join('; ');
     const harTid = d.innMin && d.utMaks;
     const innUt = !harTid ? '–'
@@ -679,7 +727,8 @@ function tegn(){
     // Eksakt tid i datocellen bare når kolonnen viser avrundet (unngå dobbelt).
     const eksakt = (harTid && avrund) ? klokkeEks(d.innMin) + '–' + klokkeEks(d.utMaks) : '';
     const rad = document.createElement('tr');
-    if (!d.teller && d.sek === 0) rad.className = 'fri';
+    if (!d.teller && d.sek === 0) rad.classList.add('fri');
+    if (d.kanFerie){ rad.classList.add('kanferie'); rad.dataset.dato = nokkel(d.dato); }
     rad.innerHTML =
       '<td class="dag"><span class="dato">' + kort(d.dato) + '</span>' +
         '<span class="ukedag">' + UKEDAG[d.dato.getDay()] + etikett + '</span>' +
@@ -697,6 +746,10 @@ function tegn(){
     '<td class="num">' + hm(r.sum) + '</td>' +
     '<td class="num ' + klasse(r.diff) + '">' + (signert(r.diff) || '0 t 00 m') + '</td>';
   db.appendChild(tot);
+
+  $('ferieHint').textContent = r.dager.some(d => d.kanFerie)
+    ? 'Manglende arbeidsdager teller som minus. Trykk på en slik dag for å merke den som ferie/fri.'
+    : '';
 
   $('maanedsvelger').classList.remove('skjult');
   $('hurtigvalg').classList.remove('skjult');
@@ -846,6 +899,16 @@ $('mal').addEventListener('input', () => { if (data) tegn(); });
 // Måned huskes ikke mellom økter — standard er alltid inneværende måned.
 $('maaned').addEventListener('change', () => { if (data) tegn(); });
 
+// Klikk på en ledig ukedag veksler ferie/fri (lagres lokalt på enheten).
+$('dagBody').addEventListener('click', e => {
+  const tr = e.target.closest('tr.kanferie');
+  if (!tr || !tr.dataset.dato) return;
+  const s = ferieSett();
+  if (s.has(tr.dataset.dato)) s.delete(tr.dataset.dato); else s.add(tr.dataset.dato);
+  settFerie(s);
+  if (data) tegn();
+});
+
 $('kopier').addEventListener('click', async () => {
   const t = oppsummering();
   try { await navigator.clipboard.writeText(t); si('Oppsummeringen er kopiert.', true); }
@@ -876,7 +939,7 @@ function dekodData(s){
 }
 
 $('mal').value = lager.get('mal', '7,5');
-$('regel').value = lager.get('regel', 'ukedagMedTid');
+$('regel').value = lager.get('regel', 'alleUkedager');
 $('url').value = lager.get('url', '');
 $('autoHent').checked = lager.get('auto', '0') === '1';
 $('lunsj').checked = lager.get('lunsj', '1') === '1';
