@@ -100,6 +100,11 @@
   .felt{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
   .felt:last-child{margin-bottom:0}
   label{font-size:.8rem;color:var(--muted)}
+  #hurtigvalg{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+  .bryter{display:inline-flex;align-items:center;gap:7px;font-size:.85rem;color:var(--ink);
+    background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:7px 13px;cursor:pointer;user-select:none}
+  .bryter input{margin:0;width:15px;height:15px;accent-color:var(--ink)}
+  .tannhjul{font-size:.95em}
   input[type=text],input[type=url],select,textarea{
     font:inherit;font-size:.92rem;padding:9px 10px;border:1px solid var(--line);
     border-radius:8px;background:var(--surface);color:var(--ink);width:100%
@@ -158,40 +163,15 @@
     <p class="undertekst" id="bUnder"></p>
   </div>
 
+  <!-- Hurtigvalg: de mest brukte bryterne, øverst -->
+  <section id="hurtigvalg" class="ikke-print skjult">
+    <label class="bryter"><input type="checkbox" id="avrund" checked> Rund av inn/ut til nærmeste kvarter</label>
+    <label class="bryter"><input type="checkbox" id="lunsj" checked> Trekk fra 30 min lunsj (ukedager)</label>
+  </section>
+
   <!-- Statusmelding (blir øverst så feil/bekreftelser synes med en gang) -->
   <section id="innlasting" class="ikke-print">
     <div class="melding skjult" id="melding" role="status"></div>
-  </section>
-
-  <!-- Innstillinger -->
-  <section id="innstillinger" class="ikke-print skjult">
-    <details class="detaljer">
-      <summary>Innstillinger</summary>
-      <div class="panel">
-        <div class="felt">
-          <label for="mal">Mål per dag</label>
-          <input type="text" id="mal" value="7,5" inputmode="decimal" placeholder="7,5 eller 7:30">
-        </div>
-        <div class="felt">
-          <label><input type="checkbox" id="avrund" checked> Rund av inn- og ut-tid til nærmeste kvarter</label>
-        </div>
-        <div class="felt">
-          <label><input type="checkbox" id="lunsj" checked> Trekk fra 30 min lunsj (kun ukedager)</label>
-        </div>
-        <div class="felt">
-          <label for="regel">Hvilke dager teller mot målet</label>
-          <select id="regel">
-            <option value="ukedagMedTid">Ukedager med registrert tid</option>
-            <option value="alleMedTid">Alle dager med registrert tid</option>
-            <option value="alleUkedager">Alle ukedager i perioden, også uten tid</option>
-          </select>
-        </div>
-        <div class="felt">
-          <label for="navn">Oppdragsgiver / prosjekt</label>
-          <select id="navn"><option value="">Alle</option></select>
-        </div>
-      </div>
-    </details>
   </section>
 
   <!-- Uker -->
@@ -224,6 +204,31 @@
       <button type="button" class="sekundar" id="skrivUt">Skriv ut / lag PDF</button>
       <button type="button" class="sekundar" id="nullstill">Tøm</button>
     </div>
+  </section>
+
+  <!-- Innstillinger: sjeldnere brukt, nederst bak et tannhjul -->
+  <section id="innstillinger" class="ikke-print skjult">
+    <details class="detaljer">
+      <summary><span class="tannhjul" aria-hidden="true">⚙</span> Innstillinger</summary>
+      <div class="panel">
+        <div class="felt">
+          <label for="mal">Mål per dag</label>
+          <input type="text" id="mal" value="7,5" inputmode="decimal" placeholder="7,5 eller 7:30">
+        </div>
+        <div class="felt">
+          <label for="regel">Hvilke dager teller mot målet</label>
+          <select id="regel">
+            <option value="ukedagMedTid">Ukedager med registrert tid</option>
+            <option value="alleMedTid">Alle dager med registrert tid</option>
+            <option value="alleUkedager">Alle ukedager i perioden, også uten tid</option>
+          </select>
+        </div>
+        <div class="felt">
+          <label for="navn">Oppdragsgiver / prosjekt</label>
+          <select id="navn"><option value="">Alle</option></select>
+        </div>
+      </div>
+    </details>
   </section>
 
   <!-- Innlasting: nederst siden den brukes minst (data kommer oftest via lenke) -->
@@ -656,6 +661,7 @@ function tegn(){
     '<td class="num ' + klasse(r.diff) + '">' + (signert(r.diff) || '0 t 00 m') + '</td>';
   db.appendChild(tot);
 
+  $('hurtigvalg').classList.remove('skjult');
   $('ukeSeksjon').classList.remove('skjult');
   $('dagSeksjon').classList.remove('skjult');
   $('handlinger').classList.remove('skjult');
@@ -820,7 +826,7 @@ $('skrivUt').addEventListener('click', () => window.print());
 $('nullstill').addEventListener('click', () => {
   data = null; siste = null;
   lager.del('csv'); lager.del('kildefil');
-  ['balanse','ukeSeksjon','dagSeksjon','handlinger','innstillinger'].forEach(id => $(id).classList.add('skjult'));
+  ['balanse','hurtigvalg','ukeSeksjon','dagSeksjon','handlinger','innstillinger'].forEach(id => $(id).classList.add('skjult'));
   $('periode').textContent = 'ingen data';
   $('kildefil').textContent = '';
   $('slippTekst').textContent = 'Slipp CSV-filen her, eller velg den fra telefonen.';
