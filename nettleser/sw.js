@@ -2,7 +2,7 @@
    1) tar imot filer som deles til appen fra telefonens delingsmeny
    2) lar appen virke uten nett                                     */
 
-const CACHE = 'timeregnskap-v2';
+const CACHE = 'timeregnskap-v3';
 const SKALL = ['./', './index.html', './manifest.webmanifest', './icon.svg'];
 
 self.addEventListener('install', e => {
