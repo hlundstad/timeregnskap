@@ -69,12 +69,6 @@
   .balanse.pos .tall{color:var(--plus)}
   .balanse.neg .tall{color:var(--minus)}
 
-  .skala{margin-top:18px;height:36px;position:relative}
-  .skala .akse{position:absolute;top:11px;left:0;right:0;height:1px;background:var(--line)}
-  .skala .null{position:absolute;top:1px;height:21px;width:1px;background:var(--ink);opacity:.6}
-  .skala .stolpe{position:absolute;top:6px;height:11px;border-radius:2px}
-  .skala .tick{position:absolute;top:3px;height:17px;width:2px;background:var(--ink);opacity:.32}
-  .skala .merke{position:absolute;top:22px;font-size:.68rem;color:var(--muted);transform:translateX(-50%);white-space:nowrap}
 
   /* --- kort/seksjon --- */
   section{margin-top:26px}
@@ -183,7 +177,6 @@
   <!-- Hero: balansen -->
   <div class="balanse skjult" id="balanse">
     <div class="tall"><span class="tegn" id="bTegn">+</span><span id="bTall">0 t 00 m</span><span class="enhet">mot målet</span></div>
-    <div class="skala" id="skala" aria-hidden="true"></div>
     <p class="undertekst" id="bUnder"></p>
   </div>
 
@@ -619,8 +612,6 @@ function tegn(){
     hm(r.sum) + ' jobbet på ' + r.tellerDager + ' dager · mål ' + hm(r.sumMal) +
     ' (' + desimal(r.mal) + ' t per dag) · snitt ' + hm(r.snittDag) + ' per dag';
 
-  tegnSkala(r);
-
   // uketabell
   const ub = $('ukeBody');
   ub.innerHTML = '';
@@ -691,28 +682,6 @@ function tegn(){
   $('handlinger').classList.remove('skjult');
   $('innstillinger').classList.remove('skjult');
   $('slippTekst').textContent = 'Slipp en ny CSV-fil her for å bytte grunnlag.';
-}
-
-function tegnSkala(r){
-  const el = $('skala');
-  const maks = Math.max(1800, Math.abs(r.diff), ...r.uker.map(u => Math.abs(u.diff)));
-  const halv = 44; // prosent ut fra midten
-  const lengde = (Math.abs(r.diff) / maks) * halv;
-  const venstre = r.diff >= 0 ? 50 : 50 - lengde;
-  const ende = (maks / 3600).toFixed(1).replace('.', ',') + ' t';
-
-  let html = '<span class="akse"></span>';
-  html += '<span class="stolpe" style="left:' + venstre + '%;width:' + Math.max(lengde, 0.8) + '%;' +
-          'background:' + (r.diff >= 0 ? 'var(--plus)' : 'var(--minus)') + '"></span>';
-  for (const u of r.uker){
-    html += '<span class="tick" style="left:' + (50 + (u.diff / maks) * halv) + '%"></span>';
-  }
-  html += '<span class="null" style="left:50%"></span>';
-  html += '<span class="merke" style="left:50%">0</span>';
-  html += '<span class="merke" style="left:' + (50 - halv) + '%">−' + ende + '</span>';
-  html += '<span class="merke" style="left:' + (50 + halv) + '%">+' + ende + '</span>';
-  el.innerHTML = html;
-  el.title = 'Samlet avvik. Strekene viser hver enkelt uke.';
 }
 
 /* ---------- eksport ---------- */
