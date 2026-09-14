@@ -100,6 +100,17 @@
   .felt{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
   .felt:last-child{margin-bottom:0}
   label{font-size:.8rem;color:var(--muted)}
+  #maanedsvelger{margin-top:16px}
+  #maaned{
+    font-family:var(--serif);font-size:1.1rem;font-weight:500;color:var(--ink);
+    background-color:var(--surface);
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%2393A6AB' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 14px center;
+    border:1px solid var(--line);border-radius:999px;padding:9px 40px 9px 17px;
+    width:auto;max-width:100%;cursor:pointer;box-shadow:var(--skygge);
+    -webkit-appearance:none;appearance:none;transition:border-color .15s ease
+  }
+  #maaned:hover{border-color:var(--muted)}
   #hurtigvalg{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
   .bryter{display:inline-flex;align-items:center;gap:7px;font-size:.85rem;color:var(--muted);
     background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:7px 13px;cursor:pointer;user-select:none;
@@ -173,6 +184,11 @@
       <span class="kildefil" id="kildefil"></span>
     </span>
   </header>
+
+  <!-- Månedsvelger: standard inneværende måned, «Alle måneder» kan velges -->
+  <section id="maanedsvelger" class="ikke-print skjult">
+    <select id="maaned" aria-label="Velg måned"></select>
+  </section>
 
   <!-- Hero: balansen -->
   <div class="balanse skjult" id="balanse">
@@ -369,7 +385,10 @@ function parseDato(s){
 }
 
 const nokkel = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+const nokkelMnd = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
 const kort = d => String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0');
+const MNDNAVN = ['januar','februar','mars','april','mai','juni','juli','august','september','oktober','november','desember'];
+function maanedNavn(m){ const [y, mm] = m.split('-'); const n = MNDNAVN[+mm-1]; return n.charAt(0).toUpperCase() + n.slice(1) + ' ' + y; }
 
 function isoUke(d){
   const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -505,8 +524,11 @@ function beregn(){
   const mal = malSekunder();
   const regel = $('regel').value;
   const valgtNavn = $('navn').value;
+  const valgtMnd = $('maaned').value;
 
-  const poster = data.poster.filter(p => !valgtNavn || p.navn === valgtNavn);
+  const poster = data.poster.filter(p =>
+    (!valgtNavn || p.navn === valgtNavn) &&
+    (!valgtMnd || valgtMnd === 'alle' || nokkelMnd(p.dato) === valgtMnd));
   if (!poster.length) return null;
 
   const avrund = $('avrund').checked;
@@ -676,6 +698,7 @@ function tegn(){
     '<td class="num ' + klasse(r.diff) + '">' + (signert(r.diff) || '0 t 00 m') + '</td>';
   db.appendChild(tot);
 
+  $('maanedsvelger').classList.remove('skjult');
   $('hurtigvalg').classList.remove('skjult');
   $('ukeSeksjon').classList.remove('skjult');
   $('dagSeksjon').classList.remove('skjult');
@@ -731,6 +754,17 @@ function lastNedCsv(){
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 
+/* ---------- måneder ---------- */
+function fyllMaaneder(){
+  const mnd = [...new Set(data.poster.map(p => nokkelMnd(p.dato)))].sort().reverse(); // nyeste først
+  const naa = nokkelMnd(new Date());
+  const valgt = mnd.includes(naa) ? naa : mnd[0]; // standard: inneværende, ellers nyeste med data
+  $('maaned').innerHTML =
+    mnd.map(m => '<option value="' + m + '">' + maanedNavn(m) + '</option>').join('') +
+    (mnd.length > 1 ? '<option value="alle">Alle måneder</option>' : '');
+  $('maaned').value = valgt;
+}
+
 /* ---------- last inn ---------- */
 function last(tekst, kilde, filnavn){
   try {
@@ -744,6 +778,7 @@ function last(tekst, kilde, filnavn){
     const sel = $('navn');
     sel.innerHTML = '<option value="">Alle</option>' + navn.map(n => '<option>' + n + '</option>').join('');
     sel.parentElement.style.display = navn.length > 1 ? '' : 'none';
+    fyllMaaneder();
     si(data.hoppet.length
       ? 'Lest inn ' + data.poster.length + ' rader. Hoppet over ' + data.hoppet.length + ' rad(er) uten gyldig dato.'
       : 'Lest inn ' + data.poster.length + ' rader' + (kilde ? ' fra ' + kilde : '') + '.', true);
@@ -808,6 +843,8 @@ $('avrund').addEventListener('change', e => { lager.set('avrund', e.target.check
   if (data) tegn();
 }));
 $('mal').addEventListener('input', () => { if (data) tegn(); });
+// Måned huskes ikke mellom økter — standard er alltid inneværende måned.
+$('maaned').addEventListener('change', () => { if (data) tegn(); });
 
 $('kopier').addEventListener('click', async () => {
   const t = oppsummering();
@@ -819,7 +856,7 @@ $('skrivUt').addEventListener('click', () => window.print());
 $('nullstill').addEventListener('click', () => {
   data = null; siste = null;
   lager.del('csv'); lager.del('kildefil');
-  ['balanse','hurtigvalg','ukeSeksjon','dagSeksjon','handlinger','innstillinger'].forEach(id => $(id).classList.add('skjult'));
+  ['balanse','maanedsvelger','hurtigvalg','ukeSeksjon','dagSeksjon','handlinger','innstillinger'].forEach(id => $(id).classList.add('skjult'));
   $('periode').textContent = 'ingen data';
   $('kildefil').textContent = '';
   $('slippTekst').textContent = 'Slipp CSV-filen her, eller velg den fra telefonen.';
