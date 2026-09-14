@@ -619,7 +619,9 @@ function tegn(){
     (Math.round(ukeDiff/60) === 0 ? 'akkurat på snittet.' :
       (ukeDiff > 0 ? hm(ukeDiff) + ' over snittet per uke.' : hm(ukeDiff) + ' under snittet per uke.'));
 
-  // dagtabell
+  // dagtabell. Inn–Ut-kolonnen følger avrundingsvalget: avrundet når det er
+  // på (og eksakt tid vises da i datocellen), ellers viser kolonnen eksakt tid.
+  const avrund = $('avrund').checked;
   const db = $('dagBody');
   db.innerHTML = '';
   for (const d of [...r.dager].reverse()){
@@ -629,8 +631,11 @@ function tegn(){
     const etikett = d.teller ? '' : (pluss ? ' · plusstid' : ' · teller ikke');
     const merknad = [...new Set((d.merknader || []).filter(Boolean))].join('; ');
     const harTid = d.innMin && d.utMaks;
-    const eksakt = harTid ? klokkeEks(d.innMin) + '–' + klokkeEks(d.utMaks) : '';
-    const avrundet = harTid ? klokke(rundKvarter(d.innMin)) + '–' + klokke(rundKvarter(d.utMaks)) : '–';
+    const innUt = !harTid ? '–'
+      : (avrund ? klokke(rundKvarter(d.innMin)) + '–' + klokke(rundKvarter(d.utMaks))
+                : klokkeEks(d.innMin) + '–' + klokkeEks(d.utMaks));
+    // Eksakt tid i datocellen bare når kolonnen viser avrundet (unngå dobbelt).
+    const eksakt = (harTid && avrund) ? klokkeEks(d.innMin) + '–' + klokkeEks(d.utMaks) : '';
     const rad = document.createElement('tr');
     if (!d.teller && d.sek === 0) rad.className = 'fri';
     rad.innerHTML =
@@ -638,7 +643,7 @@ function tegn(){
         '<span class="ukedag">' + UKEDAG[d.dato.getDay()] + etikett + '</span>' +
         (eksakt ? '<span class="tider">' + eksakt + '</span>' : '') +
         (merknad ? '<span class="merknad">' + esc(merknad) + '</span>' : '') + '</td>' +
-      '<td class="num klokke">' + avrundet + '</td>' +
+      '<td class="num klokke">' + innUt + '</td>' +
       '<td class="num">' + hm(d.sek) + '</td>' +
       '<td class="num ' + klasse(d.diff) + '">' + (visAvvik ? (signert(d.diff) || '0 t 00 m') : '–') + '</td>';
     db.appendChild(rad);
