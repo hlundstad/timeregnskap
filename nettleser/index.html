@@ -87,6 +87,8 @@
   .dag .dato{display:block}
   .ukedag{color:var(--muted);font-size:.75rem}
   .merknad{display:block;color:var(--muted);font-size:.75rem;font-style:italic;margin-top:2px;max-width:22ch;white-space:normal;line-height:1.3}
+  .tider{display:block;color:var(--muted);font-size:.75rem;margin-top:2px;font-variant-numeric:tabular-nums}
+  td.klokke{font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--muted)}
   tr.fri td{color:var(--muted)}
   .bar{width:64px;height:10px;position:relative}
   .bar i{position:absolute;top:1px;height:8px;border-radius:2px;display:block}
@@ -171,6 +173,9 @@
           <input type="text" id="mal" value="7,5" inputmode="decimal" placeholder="7,5 eller 7:30">
         </div>
         <div class="felt">
+          <label><input type="checkbox" id="avrund" checked> Rund av inn- og ut-tid til nærmeste kvarter</label>
+        </div>
+        <div class="felt">
           <label><input type="checkbox" id="lunsj" checked> Trekk fra 30 min lunsj (kun ukedager)</label>
         </div>
         <div class="felt">
@@ -206,7 +211,7 @@
     <h2>Per dag</h2>
     <table>
       <thead><tr>
-        <th>Dato</th><th class="num">Jobbet</th><th></th><th class="num">Avvik</th>
+        <th>Dato</th><th class="num">Inn–Ut</th><th class="num">Jobbet</th><th class="num">Avvik</th>
       </tr></thead>
       <tbody id="dagBody"></tbody>
     </table>
@@ -272,6 +277,32 @@ const lager = {
 const $ = id => document.getElementById(id);
 const UKEDAG = ['søn','man','tir','ons','tor','fre','lør'];
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+const to2 = n => String(n).padStart(2, '0');
+// Klokkeslett HH:MM (uten sekunder), evt. HH:MM:SS når sekunder != 0.
+const klokke = d => to2(d.getHours()) + ':' + to2(d.getMinutes());
+const klokkeEks = d => klokke(d) + (d.getSeconds() ? ':' + to2(d.getSeconds()) : '');
+// Rund et tidspunkt til nærmeste hele kvarter (sekunder teller med).
+function rundKvarter(d){
+  const mins = d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
+  const r = Math.round(mins / 15) * 15;
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+  x.setMinutes(r);
+  return x;
+}
+
+// Fullt tidspunkt med klokkeslett. Returnerer {d, harTid} eller null.
+function parseTidspunkt(s){
+  if (!s) return null;
+  const t = String(s).trim();
+  let m;
+  if ((m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/)))
+    return { d: new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5], +(m[6]||0)), harTid: true };
+  if ((m = t.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/)))
+    return { d: new Date(+m[3], +m[2]-1, +m[1], +m[4], +m[5], +(m[6]||0)), harTid: true };
+  const d = parseDato(t);
+  return d ? { d, harTid: false } : null;
+}
 
 function tilTall(s){
   if (s === undefined || s === null) return NaN;
@@ -388,6 +419,7 @@ function finnKolonner(hode){
   const finn = re => n.findIndex(h => re.test(h));
   return {
     dato: finn(/^(periode|period|dato|date|dag|day|entry|start|inn)/),
+    ut: finn(/^(exit|slutt|stopp|stop|end|uttid|ut)/),
     varighet: finn(/(duration|varighet|totalsek|totalsekunder|sekundertotalt)/),
     timer: finn(/^(hours|hrs|timer|time|t)$/),
     min: finn(/^(minutes|minutter|min|m)$/),
@@ -409,10 +441,10 @@ function lesCsv(tekst){
   const harHode = k.dato >= 0 || k.varighet >= 0;
   if (!harHode){
     // Ingen gjenkjent overskrift: anta rekkefølgen navn;dato;sekunder
-    k = { navn: 0, dato: 1, varighet: 2, timer: 3, min: 4, sek: 5, note: -1 };
+    k = { navn: 0, dato: 1, ut: -1, varighet: 2, timer: 3, min: 4, sek: 5, note: -1 };
     start = 0;
     if (parseDato(rader[0][1]) === null && parseDato(rader[0][0]) !== null){
-      k = { navn: -1, dato: 0, varighet: 1, timer: -1, min: -1, sek: -1, note: -1 };
+      k = { navn: -1, dato: 0, ut: -1, varighet: 1, timer: -1, min: -1, sek: -1, note: -1 };
     }
   }
   if (k.dato < 0) throw new Error('Fant ingen datokolonne i filen.');
@@ -430,10 +462,14 @@ function lesCsv(tekst){
       const s = k.sek   >= 0 ? tilTall(r[k.sek])   : 0;
       sek = (isFinite(t)?t:0) * 3600 + (isFinite(m)?m:0) * 60 + (isFinite(s)?s:0);
     }
+    const inn = k.dato >= 0 ? parseTidspunkt(r[k.dato]) : null;
+    const ut  = k.ut   >= 0 ? parseTidspunkt(r[k.ut])   : null;
+    const harTider = !!(inn && inn.harTid && ut && ut.harTid);
     poster.push({
       dato, sek: Math.max(0, Math.round(sek)),
       navn: k.navn >= 0 ? (r[k.navn] || '') : '',
-      merknad: k.note >= 0 ? (r[k.note] || '').trim() : ''
+      merknad: k.note >= 0 ? (r[k.note] || '').trim() : '',
+      inn: inn ? inn.d : null, ut: ut ? ut.d : null, harTider
     });
   }
   if (!poster.length) throw new Error('Fant ingen rader med dato og tid i filen.');
@@ -451,12 +487,31 @@ function beregn(){
   const poster = data.poster.filter(p => !valgtNavn || p.navn === valgtNavn);
   if (!poster.length) return null;
 
+  const avrund = $('avrund').checked;
   const perDag = new Map();
   for (const p of poster){
     const n = nokkel(p.dato);
-    const f = perDag.get(n);
-    if (f){ f.sek += p.sek; if (p.merknad) f.merknader.push(p.merknad); }
-    else perDag.set(n, { dato: p.dato, sek: p.sek, merknader: p.merknad ? [p.merknad] : [] });
+    let f = perDag.get(n);
+    if (!f){ f = { dato: p.dato, poster: [], merknader: [] }; perDag.set(n, f); }
+    f.poster.push(p);
+    if (p.merknad) f.merknader.push(p.merknad);
+  }
+
+  // Regn ut varighet (eksakt og avrundet) og inn/ut-tider per dag.
+  for (const f of perDag.values()){
+    let sekEks = 0, sekAvr = 0, innMin = null, utMaks = null;
+    for (const p of f.poster){
+      sekEks += p.sek;
+      if (p.harTider){
+        sekAvr += Math.max(0, (rundKvarter(p.ut) - rundKvarter(p.inn)) / 1000);
+        if (!innMin || p.inn < innMin) innMin = p.inn;
+        if (!utMaks || p.ut > utMaks) utMaks = p.ut;
+      } else {
+        sekAvr += p.sek;   // ingen klokkeslett å runde
+      }
+    }
+    f.innMin = innMin; f.utMaks = utMaks;
+    f.sek = avrund ? Math.round(sekAvr) : sekEks;
   }
 
   let dager = [...perDag.values()].sort((a,b) => a.dato - b.dato);
@@ -466,7 +521,7 @@ function beregn(){
     const d = new Date(dager[0].dato), slutt = dager[dager.length-1].dato;
     while (d <= slutt){
       const n = nokkel(d);
-      if (!perDag.has(n) && d.getDay() >= 1 && d.getDay() <= 5) perDag.set(n, { dato: new Date(d), sek: 0, merknader: [] });
+      if (!perDag.has(n) && d.getDay() >= 1 && d.getDay() <= 5) perDag.set(n, { dato: new Date(d), sek: 0, merknader: [], innMin: null, utMaks: null });
       d.setDate(d.getDate() + 1);
     }
     dager = [...perDag.values()].sort((a,b) => a.dato - b.dato);
@@ -564,39 +619,35 @@ function tegn(){
     (Math.round(ukeDiff/60) === 0 ? 'akkurat på snittet.' :
       (ukeDiff > 0 ? hm(ukeDiff) + ' over snittet per uke.' : hm(ukeDiff) + ' under snittet per uke.'));
 
-  // dagtabell. Skalaen baseres på dager med dagmål, så en stor plusspost i
-  // helgen ikke trykker hverdagsstolpene flate.
-  const maksAvvik = Math.max(7200, ...r.dager.filter(d => d.teller).map(d => Math.abs(d.diff)));
+  // dagtabell
   const db = $('dagBody');
   db.innerHTML = '';
   for (const d of [...r.dager].reverse()){
     // Dager uten dagmål (helg o.l.): timer der er ren plusstid, aldri minus.
     const pluss = !d.teller && d.sek > 0;
     const visAvvik = d.teller || pluss;
-    const andel = Math.min(1, Math.abs(d.diff) / maksAvvik) * 50;
-    const farge = d.diff > 0 ? 'var(--plus)' : 'var(--minus)';
-    const stolpe = (!visAvvik || Math.round(Math.abs(d.diff)/60) === 0) ? '' :
-      (d.diff > 0
-        ? '<i style="left:50%;width:' + andel + '%;background:' + farge + '"></i>'
-        : '<i style="right:50%;width:' + andel + '%;background:' + farge + '"></i>');
     const etikett = d.teller ? '' : (pluss ? ' · plusstid' : ' · teller ikke');
     const merknad = [...new Set((d.merknader || []).filter(Boolean))].join('; ');
+    const harTid = d.innMin && d.utMaks;
+    const eksakt = harTid ? klokkeEks(d.innMin) + '–' + klokkeEks(d.utMaks) : '';
+    const avrundet = harTid ? klokke(rundKvarter(d.innMin)) + '–' + klokke(rundKvarter(d.utMaks)) : '–';
     const rad = document.createElement('tr');
     if (!d.teller && d.sek === 0) rad.className = 'fri';
     rad.innerHTML =
       '<td class="dag"><span class="dato">' + kort(d.dato) + '</span>' +
         '<span class="ukedag">' + UKEDAG[d.dato.getDay()] + etikett + '</span>' +
+        (eksakt ? '<span class="tider">' + eksakt + '</span>' : '') +
         (merknad ? '<span class="merknad">' + esc(merknad) + '</span>' : '') + '</td>' +
+      '<td class="num klokke">' + avrundet + '</td>' +
       '<td class="num">' + hm(d.sek) + '</td>' +
-      '<td><span class="bar"><span class="mid"></span>' + stolpe + '</span></td>' +
       '<td class="num ' + klasse(d.diff) + '">' + (visAvvik ? (signert(d.diff) || '0 t 00 m') : '–') + '</td>';
     db.appendChild(rad);
   }
   const tot = document.createElement('tr');
   tot.className = 'total';
   tot.innerHTML =
-    '<td>Totalt (' + desimal(r.sum) + ' timer)</td>' +
-    '<td class="num">' + hm(r.sum) + '</td><td></td>' +
+    '<td>Totalt (' + desimal(r.sum) + ' timer)</td><td></td>' +
+    '<td class="num">' + hm(r.sum) + '</td>' +
     '<td class="num ' + klasse(r.diff) + '">' + (signert(r.diff) || '0 t 00 m') + '</td>';
   db.appendChild(tot);
 
@@ -746,6 +797,7 @@ $('brukLim').addEventListener('click', () => { const v = $('lim').value.trim(); 
 $('brukEksempel').addEventListener('click', () => last(EKSEMPEL, 'eksempelet', null));
 $('autoHent').addEventListener('change', e => lager.set('auto', e.target.checked ? '1' : '0'));
 $('lunsj').addEventListener('change', e => { lager.set('lunsj', e.target.checked ? '1' : '0'); if (data) tegn(); });
+$('avrund').addEventListener('change', e => { lager.set('avrund', e.target.checked ? '1' : '0'); if (data) tegn(); });
 
 ['mal','regel','navn'].forEach(id => $(id).addEventListener('change', () => {
   lager.set(id, $(id).value);
@@ -787,6 +839,7 @@ $('regel').value = lager.get('regel', 'ukedagMedTid');
 $('url').value = lager.get('url', '');
 $('autoHent').checked = lager.get('auto', '0') === '1';
 $('lunsj').checked = lager.get('lunsj', '1') === '1';
+$('avrund').checked = lager.get('avrund', '1') === '1';
 
 function sjekkLenke(){
   const p = new URLSearchParams(location.search);
