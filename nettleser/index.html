@@ -6,7 +6,8 @@
 <title>Timeregnskap</title>
 <meta name="description" content="Regn ut timer, minutter og avvik fra 7,5 timer per dag fra en CSV-fil.">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#F2F4F3">
+<meta name="theme-color" content="#F2F4F3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0F1618" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,9 +22,31 @@
     --plus:#1C6B58;
     --minus:#9E3B2E;
     --focus:#2B6C8F;
+    --pluss-bg:#E9F2EF; --pluss-linje:#CBE0D9;
+    --minus-bg:#FBECE8; --minus-linje:#EDCEC7;
+    --slipp-over:#EEF5F8;
+    --brikke:#EDF1F0;
+    --skygge:0 1px 2px rgba(22,41,46,.05);
     --r:10px;
     --sans:'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
     --serif:'Newsreader', Georgia, 'Times New Roman', serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --paper:#0F1618;
+      --surface:#182226;
+      --ink:#E6ECEA;
+      --muted:#93A6AB;
+      --line:#2A383C;
+      --plus:#5BC6A2;
+      --minus:#E68B7C;
+      --focus:#5AA7CC;
+      --pluss-bg:#14312A; --pluss-linje:#1F4C41;
+      --minus-bg:#3A211C; --minus-linje:#5C332B;
+      --slipp-over:#16323D;
+      --brikke:#1F2A2E;
+      --skygge:0 1px 2px rgba(0,0,0,.25);
+    }
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0}
@@ -101,9 +124,12 @@
   .felt:last-child{margin-bottom:0}
   label{font-size:.8rem;color:var(--muted)}
   #hurtigvalg{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
-  .bryter{display:inline-flex;align-items:center;gap:7px;font-size:.85rem;color:var(--ink);
-    background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:7px 13px;cursor:pointer;user-select:none}
-  .bryter input{margin:0;width:15px;height:15px;accent-color:var(--ink)}
+  .bryter{display:inline-flex;align-items:center;gap:7px;font-size:.85rem;color:var(--muted);
+    background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:7px 13px;cursor:pointer;user-select:none;
+    box-shadow:var(--skygge);transition:background .15s ease,border-color .15s ease,color .15s ease}
+  .bryter:hover{border-color:var(--muted)}
+  .bryter:has(input:checked){background:var(--brikke);border-color:var(--plus);color:var(--ink)}
+  .bryter input{margin:0;width:15px;height:15px;accent-color:var(--plus)}
   .tannhjul{font-size:.95em}
   input[type=text],input[type=url],select,textarea{
     font:inherit;font-size:.92rem;padding:9px 10px;border:1px solid var(--line);
@@ -116,24 +142,36 @@
     border:1px solid var(--ink);background:var(--ink);color:var(--paper);cursor:pointer
   }
   button.sekundar{background:transparent;color:var(--ink);border-color:var(--line)}
+  button{transition:background .15s ease,border-color .15s ease,transform .05s ease,opacity .15s ease}
+  button:hover{opacity:.9}
+  button.sekundar:hover{border-color:var(--muted);opacity:1}
   button:active{transform:translateY(1px)}
 
   .slipp{
     border:1.5px dashed var(--line);border-radius:var(--r);background:var(--surface);
     padding:28px 18px;text-align:center
   }
-  .slipp.over{border-color:var(--focus);background:#EEF5F8}
+  .slipp.over{border-color:var(--focus);background:var(--slipp-over)}
   .slipp p{margin:0 0 14px;color:var(--muted);font-size:.9rem}
   #fil{display:none}
 
-  .melding{margin-top:12px;font-size:.85rem;padding:10px 12px;border-radius:8px;background:#FBECE8;color:var(--minus);border:1px solid #EDCEC7}
-  .melding.ok{background:#E9F2EF;color:var(--plus);border-color:#CBE0D9}
+  .melding{margin-top:12px;font-size:.85rem;padding:10px 12px;border-radius:8px;background:var(--minus-bg);color:var(--minus);border:1px solid var(--minus-linje)}
+  .melding.ok{background:var(--pluss-bg);color:var(--plus);border-color:var(--pluss-linje)}
   .skjult{display:none !important}
 
   details.detaljer summary{cursor:pointer;font-size:.85rem;color:var(--muted);padding:4px 0}
   details.detaljer[open] summary{margin-bottom:10px}
 
   footer{margin-top:36px;padding-top:14px;border-top:1px solid var(--line);color:var(--muted);font-size:.78rem}
+
+  .panel{box-shadow:var(--skygge)}
+  .slipp{box-shadow:var(--skygge);transition:border-color .15s ease,background .15s ease}
+  @keyframes stigInn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .balanse:not(.skjult){animation:stigInn .28s ease both}
+  @media (hover:hover){
+    #dagBody tr:not(.total):hover,#ukeBody tr:not(.total):hover{background:var(--brikke)}
+    tbody tr{transition:background .12s ease}
+  }
 
   @media print{
     body{background:#fff}
