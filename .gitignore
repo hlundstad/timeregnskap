@@ -3,3 +3,6 @@ __pycache__/
 *.pyc
 .venv/
 rapport.html
+
+# iOS-appen ligger i eget privat repo (timeregnskap-app)
+iphone-app/
