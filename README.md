@@ -92,7 +92,7 @@ Skilletegn `;`, `,` eller tabulator oppdages automatisk.
 
 ```
 Name;Period;Duration (sec);Hours;Minutes;Seconds
-Skatteetaten;2026-09-11;22500;6;15;0
+Jobb;2026-09-11;22500;6;15;0
 ```
 
 Det eneste som kreves er en datokolonne (`Period`, `Dato`, `Date` …) og en
